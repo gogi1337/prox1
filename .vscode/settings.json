@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "rgfw.h": "c",
+        "cstdlib": "cpp",
+        "rgload.h": "c"
+    }
+}
