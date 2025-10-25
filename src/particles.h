@@ -30,14 +30,12 @@ typedef struct {
 
 // Particle system functions
 ParticleSystem* particle_system_create(int initial_capacity);
-void particle_system_destroy(ParticleSystem* ps);
-void particle_system_resize(ParticleSystem* ps, int new_count);
-void particle_system_init_particles(ParticleSystem* ps, const Config* config);
-void particle_system_redistribute(ParticleSystem* ps, const Config* config, const Camera* cam);
-void particle_system_update(ParticleSystem* ps, const Config* config, float dt);
-void particle_system_reset(ParticleSystem* ps, const Config* config);
 void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt);
+void particle_system_destroy(ParticleSystem* ps);
+void particle_system_resize(ParticleSystem* ps, int new_count);
+void particle_system_redistribute(ParticleSystem* ps, const Config* config, const Camera* cam);
+void particle_system_reset(ParticleSystem* ps, const Config* config, Camera* cam);
 
 // Particle helper functions
 void particle_spawn(Particle* p, const ParticleSystem* ps, const Config* config);

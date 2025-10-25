@@ -94,6 +94,14 @@ ParticleSystem* particle_system_create(int initial_capacity) {
     return ps;
 }
 
+// Initialize all particles within camera view
+void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam) {
+    for (int i = 0; i < ps->count; i++) {
+        particle_reset_in_view(&ps->particles[i], config, cam);
+        ps->particles[i].lifetime = randf() * config->particle_lifetime;
+    }
+}
+
 // Destroy particle system
 void particle_system_destroy(ParticleSystem* ps) {
     if (ps) {
@@ -119,24 +127,6 @@ void particle_system_resize(ParticleSystem* ps, int new_count) {
     }
     
     ps->count = new_count;
-}
-
-// Initialize all particles within camera view
-void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam) {
-    for (int i = 0; i < ps->count; i++) {
-        particle_reset_in_view(&ps->particles[i], config, cam);
-        ps->particles[i].lifetime = randf() * config->particle_lifetime;
-    }
-}
-
-// Legacy init without camera (spawns in -1 to 1)
-void particle_system_init_particles(ParticleSystem* ps, const Config* config) {
-    for (int i = 0; i < ps->count; i++) {
-        ps->particles[i].position.x = randf_range(-1.0f, 1.0f);
-        ps->particles[i].position.y = randf_range(-1.0f, 1.0f);
-        ps->particles[i].prev_position = ps->particles[i].position;
-        ps->particles[i].lifetime = randf() * config->particle_lifetime;
-    }
 }
 
 // Update all particles with camera-aware spawning
@@ -205,12 +195,7 @@ void particle_system_redistribute(ParticleSystem* ps, const Config* config, cons
     }
 }
 
-// Legacy update without camera
-void particle_system_update(ParticleSystem* ps, const Config* config, float dt) {
-    // This is kept for compatibility but should use camera version
-}
-
 // Reset all particles
-void particle_system_reset(ParticleSystem* ps, const Config* config) {
-    particle_system_init_particles(ps, config);
+void particle_system_reset(ParticleSystem* ps, const Config* config, Camera* cam) {
+    particle_system_init_particles_with_camera(ps, config, cam);
 }

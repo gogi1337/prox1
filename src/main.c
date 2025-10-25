@@ -48,7 +48,7 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
             
         case RGFW_r:
             // Reset particles
-            particle_system_reset(ps, config);
+            particle_system_reset(ps, config, cam);
             printf("Particles reset\n");
             break;
             
@@ -61,24 +61,6 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
             particle_system_redistribute(ps, config, cam);
             printf("Vector field: %d (redistributed)\n", config->vector_field_type);
             break;
-            
-        // case RGFW_up:
-        //     // Increase particle count
-        //     config->particle_count += 500;
-        //     if (config->particle_count > 5000000) config->particle_count = 50000;
-        //     particle_system_resize(ps, config->particle_count);
-        //     particle_system_init_particles(ps, config);
-        //     printf("Particle count: %d\n", config->particle_count);
-        //     break;
-            
-        // case RGFW_down:
-        //     // Decrease particle count
-        //     config->particle_count -= 500;
-        //     if (config->particle_count < 100) config->particle_count = 100;
-        //     particle_system_resize(ps, config->particle_count);
-        //     particle_system_init_particles(ps, config);
-        //     printf("Particle count: %d\n", config->particle_count);
-        //     break;
 
         case RGFW_equals:  // + key
         case RGFW_kpPlus: {
@@ -170,7 +152,6 @@ int main(void) {
         return 1;
     }
     
-    // particle_system_init_particles(ps, &config);
     particle_system_init_particles_with_camera(ps, &config, &camera);
     
     printf("SPACE   - Pause/Resume\n");
@@ -200,17 +181,8 @@ int main(void) {
             if (event.type == RGFW_keyPressed) {
                 handle_input(win, (RGFW_keyEvent*)&event, &config, ps, &camera);
             }
-
-            if (event.type == RGFW_mouseButtonPressed) {
-                // if (event->button == ) {
-                //     camera_zoom_in(cam);
-                // } else if (event->button == RGFW_mouseScrollDown) {
-                //     camera_zoom_out(cam);
-                // }
-            }
         }
         
-        // particle_system_update(ps, &config, dt);
         particle_system_update_with_camera(ps, &config, &camera, dt);
 
         renderer_update_particles(renderer, ps);
