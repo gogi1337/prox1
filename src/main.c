@@ -62,7 +62,7 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
         case RGFW_up:
             // Increase particle count
             config->particle_count += 500;
-            if (config->particle_count > 50000) config->particle_count = 50000;
+            if (config->particle_count > 5000000) config->particle_count = 50000;
             particle_system_resize(ps, config->particle_count);
             particle_system_init_particles(ps, config);
             printf("Particle count: %d\n", config->particle_count);
