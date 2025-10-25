@@ -75,7 +75,7 @@ vec2 field_sink(vec2 p, float scale) {
     return v;
 }
 
-// Wave field: sinusoidal patterns (your example)
+// Wave field: sinusoidal patterns
 vec2 field_wave(vec2 p, float scale) {
     vec2 v;
     float len = vec2_length(p);
@@ -83,6 +83,41 @@ vec2 field_wave(vec2 p, float scale) {
     v.x = p.y * scale;
     v.y = (cosf(len) + sinf(len)) * scale;
     
+    return v;
+}
+
+// Lorenz field: chaotic attractor
+vec2 field_lorenz(vec2 p, float scale) {
+    vec2 v;
+    float sigma = 10.0f;
+    float rho = 28.0f;
+    v.x = sigma * (p.y - p.x) * 0.05f * scale;
+    v.y = (p.x * (rho - p.x * p.x - p.y * p.y) - p.y) * 0.05f * scale;
+    return v;
+}
+
+// Hopf field: spiral bifurcation
+vec2 field_hopf(vec2 p, float scale) {
+    vec2 v;
+    float r_squared = p.x * p.x + p.y * p.y;
+    float mu = 1.0f - r_squared;
+    v.x = (mu * p.x - p.y) * scale;
+    v.y = (p.x + mu * p.y) * scale;
+    return v;
+}
+
+// Galaxy field: spiral with radial component
+vec2 field_galaxy(vec2 p, float scale) {
+    vec2 v;
+    float r = sqrtf(p.x * p.x + p.y * p.y);
+    float theta = atan2f(p.y, p.x);
+    float spiral = 0.5f / (r + 0.1f);
+    
+    float vr = -0.2f * r;
+    float vtheta = spiral;
+    
+    v.x = (vr * cosf(theta) - vtheta * sinf(theta)) * scale;
+    v.y = (vr * sinf(theta) + vtheta * cosf(theta)) * scale;
     return v;
 }
 
@@ -94,6 +129,9 @@ VectorFieldFunc get_vector_field(int field_type) {
         case 2: return field_source;
         case 3: return field_sink;
         case 4: return field_wave;
+        case 5: return field_lorenz;
+        case 6: return field_hopf;
+        case 7: return field_galaxy;
         default: return field_vortex;
     }
 }
@@ -104,13 +142,14 @@ vec2 get_velocity(vec2 p, int field_type, float scale) {
     return func(p, scale);
 }
 
+// Main evaluation function with custom implementations
 vec2 vector_field_evaluate(vec2 p, const Config* config) {
     vec2 v = {0.0f, 0.0f};
     float scale = config->field_scale;
     
     switch (config->vector_field_type) {
         case FIELD_VORTEX:
-            // Swirling vortex
+            // Swirling vortex with perturbations
             v.x = -p.y + sinf(p.x * 0.5f) * 0.5f;
             v.y = p.x + cosf(p.y * 0.5f) * 0.5f;
             break;
@@ -135,8 +174,52 @@ vec2 vector_field_evaluate(vec2 p, const Config* config) {
             
         case FIELD_WAVE:
             // Beautiful wave pattern
-            v.x = -p.y + sinf(sqrtf(p.x * p.x + p.y * p.y) * 2.0f) * 0.3f;
-            v.y = p.x + cosf(sqrtf(p.x * p.x + p.y * p.y) * 2.0f) * 0.3f;
+            {
+                float r = sqrtf(p.x * p.x + p.y * p.y);
+                v.x = -p.y + sinf(r * 2.0f) * 0.3f;
+                v.y = p.x + cosf(r * 2.0f) * 0.3f;
+            }
+            break;
+            
+        case FIELD_LORENZ:
+            // Lorenz attractor-inspired (chaotic butterfly)
+            {
+                float sigma = 10.0f;
+                float rho = 28.0f;
+                v.x = sigma * (p.y - p.x) * 0.05f;
+                v.y = (p.x * (rho - p.x * p.x - p.y * p.y) - p.y) * 0.05f;
+            }
+            break;
+            
+        case FIELD_HOPF:
+            // Hopf bifurcation (spiral collapse/expansion)
+            {
+                float r_squared = p.x * p.x + p.y * p.y;
+                float mu = 1.0f - r_squared;
+                v.x = mu * p.x - p.y;
+                v.y = p.x + mu * p.y;
+            }
+            break;
+            
+        case FIELD_GALAXY:
+            // Galaxy spiral with radial component
+            {
+                float r = sqrtf(p.x * p.x + p.y * p.y);
+                float theta = atan2f(p.y, p.x);
+                float spiral = 0.5f / (r + 0.1f);
+                
+                float vr = -0.2f * r;
+                float vtheta = spiral;
+                
+                v.x = vr * cosf(theta) - vtheta * sinf(theta);
+                v.y = vr * sinf(theta) + vtheta * cosf(theta);
+            }
+            break;
+            
+        default:
+            // Fallback to simple vortex
+            v.x = -p.y;
+            v.y = p.x;
             break;
     }
     

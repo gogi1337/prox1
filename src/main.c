@@ -57,6 +57,9 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
         case RGFW_3:
         case RGFW_4:
         case RGFW_5:
+        case RGFW_6:
+        case RGFW_7:
+        case RGFW_8:
             config->vector_field_type = event->value - RGFW_1;
             particle_system_redistribute(ps, config, cam);
             printf("Vector field: %d (redistributed)\n", config->vector_field_type);

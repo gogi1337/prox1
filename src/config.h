@@ -11,7 +11,10 @@ typedef enum {
     FIELD_SINK,
     FIELD_WAVE,
     FIELD_CUSTOM,
-    FIELD_COUNT
+    FIELD_COUNT,
+    FIELD_LORENZ,
+    FIELD_HOPF,
+    FIELD_GALAXY, 
 } VectorFieldType;
 
 // Integration method enumeration
