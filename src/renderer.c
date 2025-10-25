@@ -1,4 +1,5 @@
 #include "renderer.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -91,23 +92,35 @@ void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps) {
     free(vertices);
 }
 
-void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* config) {
+void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* config, const Camera* cam) {
     if (!renderer || !renderer->initialized || !ps) return;
     
-    // Fade previous frame
+    // Fade
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    // Get camera view bounds
+    float left, right, bottom, top;
+    camera_get_view_bounds(cam, &left, &right, &bottom, &top);
+    
+    // Set projection matrix based on camera
     glUseProgram(0);
-    glColor4f(0.0f, 0.0f, 0.0f, 0.03f); // Subtle fade
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(left, right, bottom, top, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // Draw fade quad
+    glColor4f(0.0f, 0.0f, 0.0f, 0.01f);
     glBegin(GL_QUADS);
-    glVertex2f(-1, -1);
-    glVertex2f(1, -1);
-    glVertex2f(1, 1);
-    glVertex2f(-1, 1);
+    glVertex2f(left, bottom);
+    glVertex2f(right, bottom);
+    glVertex2f(right, top);
+    glVertex2f(left, top);
     glEnd();
     
-    // Draw particles as lines (trails)
+    // Draw particles
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glLineWidth(1.0f);
     
@@ -120,6 +133,8 @@ void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* c
     }
     glEnd();
 }
+
+
 
 void renderer_set_viewport(Renderer* renderer, int width, int height) {
     if (!renderer) return;

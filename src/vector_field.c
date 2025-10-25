@@ -128,9 +128,9 @@ vec2 vector_field_evaluate(vec2 p, const Config* config) {
             break;
             
         case FIELD_SINK:
-            // Turbulent flow
-            v.x = sinf(p.x * p.y * 0.5f) - cosf(p.y * 2.0f);
-            v.y = cosf(p.x * p.y * 0.5f) + sinf(p.x * 2.0f);
+            // Turbulent flow with high speed zones
+            v.x = sinf(p.x * p.y * 0.5f) * 3.0f - cosf(p.y * 2.0f);
+            v.y = cosf(p.x * p.y * 0.5f) * 3.0f + sinf(p.x * 2.0f);
             break;
             
         case FIELD_WAVE:

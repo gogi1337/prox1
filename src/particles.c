@@ -18,10 +18,16 @@ static float randf_range(float min, float max) {
 
 // Reset a single particle to random position
 static void particle_reset(Particle* p, const Config* config) {
-    p->position.x = randf_range(-2.0f, 2.0f);
-    p->position.y = randf_range(-2.0f, 2.0f);
-    p->prev_position = p->position;  // Initialize prev position
+    // Spawn slightly outside visible area (-1 to 1) so particles flow in smoothly
+    p->position.x = randf_range(-1.5f, 1.5f);
+    p->position.y = randf_range(-1.5f, 1.5f);
+    p->prev_position = p->position;
     p->lifetime = 0.0f;
+}
+
+static bool is_particle_visible(const Particle* p) {
+    // Respawn when particle goes slightly off screen
+    return (fabsf(p->position.x) < 1.2f && fabsf(p->position.y) < 1.2f);
 }
 
 // Update particle color based on velocity
@@ -108,7 +114,7 @@ void particle_system_init_particles(ParticleSystem* ps, const Config* config) {
     }
 }
 
-// Update all particles
+// Update all particles with culling
 void particle_system_update(ParticleSystem* ps, const Config* config, float dt) {
     if (!ps || config->paused) return;
     
@@ -126,7 +132,7 @@ void particle_system_update(ParticleSystem* ps, const Config* config, float dt) 
         // Update color based on velocity
         update_particle_color(p, velocity);
         
-        // Integrate position based on method
+        // Integrate position
         switch (config->integration_method) {
             case INTEGRATION_EULER: {
                 p->position.x += velocity.x * adjusted_dt;
@@ -175,13 +181,10 @@ void particle_system_update(ParticleSystem* ps, const Config* config, float dt) 
         // Update lifetime
         p->lifetime += adjusted_dt;
         
-        // Reset if too old or WAY out of bounds (change 2.0f to 4.0f)
-        if (p->lifetime > config->particle_lifetime || 
-            fabsf(p->position.x) > 10.0f ||   // Much larger bounds
-            fabsf(p->position.y) > 10.0f) {
+        // Reset if too old or not visible
+        if (p->lifetime > config->particle_lifetime || !is_particle_visible(p)) {
             particle_reset(p, config);
         }
-
     }
 }
 

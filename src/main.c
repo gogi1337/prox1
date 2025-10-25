@@ -14,6 +14,8 @@
 #include "particles.h"
 #include "vector_field.h"
 #include "renderer.h"
+#include "camera.h"
+
 #include <stdio.h>
 #include <time.h>
 
@@ -34,7 +36,7 @@ float get_delta_time() {
 }
 
 // Handle keyboard input
-void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, ParticleSystem* ps) {
+void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, ParticleSystem* ps, Camera* cam) {
     switch (event->value) {
         case RGFW_space:
             // Toggle pause
@@ -59,22 +61,57 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
             printf("Switched to vector field: %d\n", config->vector_field_type);
             break;
             
-        case RGFW_up:
-            // Increase particle count
-            config->particle_count += 500;
-            if (config->particle_count > 5000000) config->particle_count = 50000;
-            particle_system_resize(ps, config->particle_count);
-            particle_system_init_particles(ps, config);
-            printf("Particle count: %d\n", config->particle_count);
-            break;
+        // case RGFW_up:
+        //     // Increase particle count
+        //     config->particle_count += 500;
+        //     if (config->particle_count > 5000000) config->particle_count = 50000;
+        //     particle_system_resize(ps, config->particle_count);
+        //     particle_system_init_particles(ps, config);
+        //     printf("Particle count: %d\n", config->particle_count);
+        //     break;
             
+        // case RGFW_down:
+        //     // Decrease particle count
+        //     config->particle_count -= 500;
+        //     if (config->particle_count < 100) config->particle_count = 100;
+        //     particle_system_resize(ps, config->particle_count);
+        //     particle_system_init_particles(ps, config);
+        //     printf("Particle count: %d\n", config->particle_count);
+        //     break;
+
+        case RGFW_equals:  // + key
+        case RGFW_kp0:
+            camera_zoom_in(cam);
+            printf("Zoom: %.2f\n", cam->zoom);
+            break;
+        case RGFW_minus:
+        case RGFW_kpSlash:
+            camera_zoom_out(cam);
+            printf("Zoom: %.2f\n", cam->zoom);
+            break;
+        
+        // Camera pan (WASD or Arrow keys)
+        case RGFW_w:
+        case RGFW_up:
+            camera_pan(cam, 0, 0.1f);
+            break;
+        case RGFW_s:
         case RGFW_down:
-            // Decrease particle count
-            config->particle_count -= 500;
-            if (config->particle_count < 100) config->particle_count = 100;
-            particle_system_resize(ps, config->particle_count);
-            particle_system_init_particles(ps, config);
-            printf("Particle count: %d\n", config->particle_count);
+            camera_pan(cam, 0, -0.1f);
+            break;
+        case RGFW_a:
+        case RGFW_left:
+            camera_pan(cam, -0.1f, 0);
+            break;
+        case RGFW_d:
+        case RGFW_right:
+            camera_pan(cam, 0.1f, 0);
+            break;
+        
+        // Reset camera
+        case RGFW_c:
+            camera_reset(cam);
+            printf("Camera reset\n");
             break;
             
         case RGFW_escape:
@@ -102,6 +139,8 @@ int main(void) {
         printf("Error: Failed to create window\n");
         return 1;
     }
+
+    Camera camera = camera_create();
     
     Renderer* renderer = renderer_create();
     if (!renderer_init(renderer, config.window_width, config.window_height)) {
@@ -134,19 +173,34 @@ int main(void) {
             if (event.type == RGFW_quit) {
                 break;
             }
+
+            if (event.type == RGFW_windowResized) {
+                config.window_width = win->w;
+                config.window_height = win->h;
+                renderer_set_viewport(renderer, win->w, win->h);
+                printf("Window resized: %dx%d\n", win->w, win->h);
+            }
+
             if (event.type == RGFW_keyPressed) {
-                handle_input(win, &event, &config, ps);
+                handle_input(win, &event, &config, ps, &camera);
+            }
+
+            if (event.type == RGFW_mouseButtonPressed) {
+                // if (event->button == ) {
+                //     camera_zoom_in(cam);
+                // } else if (event->button == RGFW_mouseScrollDown) {
+                //     camera_zoom_out(cam);
+                // }
             }
         }
         
         particle_system_update(ps, &config, dt);
         renderer_update_particles(renderer, ps);
-        renderer_draw(renderer, ps, &config);
+        renderer_draw(renderer, ps, &config, &camera);
         RGFW_window_swapBuffers_OpenGL(win);
     }
     
     // Cleanup
-    printf("\nCleaning up...\n");
     particle_system_destroy(ps);
     renderer_destroy(renderer);
     RGFW_window_close(win);
