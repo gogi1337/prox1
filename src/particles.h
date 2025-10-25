@@ -3,6 +3,7 @@
 
 #include "vector_field.h"
 #include "config.h"
+#include "camera.h"
 #include <stdbool.h>
 
 // Particle structure
@@ -32,8 +33,11 @@ ParticleSystem* particle_system_create(int initial_capacity);
 void particle_system_destroy(ParticleSystem* ps);
 void particle_system_resize(ParticleSystem* ps, int new_count);
 void particle_system_init_particles(ParticleSystem* ps, const Config* config);
+void particle_system_redistribute(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_update(ParticleSystem* ps, const Config* config, float dt);
 void particle_system_reset(ParticleSystem* ps, const Config* config);
+void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam);
+void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt);
 
 // Particle helper functions
 void particle_spawn(Particle* p, const ParticleSystem* ps, const Config* config);
@@ -43,8 +47,5 @@ void particle_respawn_if_dead(Particle* p, const ParticleSystem* ps, const Confi
 void integrate_euler(Particle* p, const Config* config, float dt);
 void integrate_rk2(Particle* p, const Config* config, float dt);
 void integrate_rk4(Particle* p, const Config* config, float dt);
-
-// Add this function before particle_system_update
-static void update_particle_color(Particle* p, vec2 velocity);
 
 #endif // PARTICLES_H

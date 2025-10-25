@@ -3,6 +3,7 @@
 #define RGFW_OPENGL
 #define RGFW_PRINT_ERRORS
 #define RGFW_DEBUG
+#define GL_SILENCE_DEPRECATION
 #include "../ext/RGFW.h"
 
 #ifndef __EMSCRIPTEN__
@@ -18,6 +19,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <math.h>
 
 // Calculate delta time
 float get_delta_time() {
@@ -55,10 +57,9 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
         case RGFW_3:
         case RGFW_4:
         case RGFW_5:
-            // Switch vector field
-            config->vector_field_type = (VectorFieldType)(event->value - RGFW_1);
-            particle_system_reset(ps, config);
-            printf("Switched to vector field: %d\n", config->vector_field_type);
+            config->vector_field_type = event->value - RGFW_1;
+            particle_system_redistribute(ps, config, cam);
+            printf("Vector field: %d (redistributed)\n", config->vector_field_type);
             break;
             
         // case RGFW_up:
@@ -80,16 +81,28 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
         //     break;
 
         case RGFW_equals:  // + key
-        case RGFW_kp0:
+        case RGFW_kpPlus: {
+            float old_zoom = cam->zoom;
             camera_zoom_in(cam);
-            printf("Zoom: %.2f\n", cam->zoom);
+            // Always redistribute on any zoom change
+            if (cam->zoom != old_zoom) {
+                particle_system_redistribute(ps, config, cam);
+                printf("Zoom: %.2f (redistributed)\n", cam->zoom);
+            }
             break;
+        }
+
         case RGFW_minus:
-        case RGFW_kpSlash:
+        case RGFW_kpMinus: {
+            float old_zoom = cam->zoom;
             camera_zoom_out(cam);
-            printf("Zoom: %.2f\n", cam->zoom);
+            // Always redistribute on any zoom change
+            if (cam->zoom != old_zoom) {
+                particle_system_redistribute(ps, config, cam);
+                printf("Zoom: %.2f (redistributed)\n", cam->zoom);
+            }
             break;
-        
+        }
         // Camera pan (WASD or Arrow keys)
         case RGFW_w:
         case RGFW_up:
@@ -116,7 +129,7 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
             
         case RGFW_escape:
             // Exit
-            RGFW_window_close(win);
+            win->internal.shouldClose = 1;
             break;
     }
 }
@@ -157,17 +170,20 @@ int main(void) {
         return 1;
     }
     
-    particle_system_init_particles(ps, &config);
+    // particle_system_init_particles(ps, &config);
+    particle_system_init_particles_with_camera(ps, &config, &camera);
     
     printf("SPACE   - Pause/Resume\n");
     printf("R       - Reset particles\n");
     printf("1-5     - Switch vector field\n");
-    printf("UP/DOWN - Increase/Decrease particle count\n");
+    printf("W/A/S/D - Camera movement\n");
+    printf("+/-     - Zoom / Outzoom \n");
+    printf("C       - Reset camera \n");
     printf("ESC     - Exit\n");
     
     while (RGFW_window_shouldClose(win) == RGFW_FALSE) {
         float dt = get_delta_time();
-        
+
         RGFW_event event;
         while (RGFW_window_checkEvent(win, &event)) {
             if (event.type == RGFW_quit) {
@@ -182,7 +198,7 @@ int main(void) {
             }
 
             if (event.type == RGFW_keyPressed) {
-                handle_input(win, &event, &config, ps, &camera);
+                handle_input(win, (RGFW_keyEvent*)&event, &config, ps, &camera);
             }
 
             if (event.type == RGFW_mouseButtonPressed) {
@@ -194,7 +210,9 @@ int main(void) {
             }
         }
         
-        particle_system_update(ps, &config, dt);
+        // particle_system_update(ps, &config, dt);
+        particle_system_update_with_camera(ps, &config, &camera, dt);
+
         renderer_update_particles(renderer, ps);
         renderer_draw(renderer, ps, &config, &camera);
         RGFW_window_swapBuffers_OpenGL(win);
