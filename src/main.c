@@ -38,7 +38,7 @@ float get_delta_time() {
 }
 
 // Handle keyboard input
-void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, ParticleSystem* ps, Camera* cam) {
+void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Renderer* renderer, ParticleSystem* ps, Camera* cam) {
     switch (event->value) {
         case RGFW_space:
             // Toggle pause
@@ -62,7 +62,8 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Partic
         case RGFW_8:
             config->vector_field_type = event->value - RGFW_1;
             particle_system_redistribute(ps, config, cam);
-            printf("Vector field: %d (redistributed)\n", config->vector_field_type);
+            renderer_request_clear(renderer);  // Clear on next frame
+            printf("Vector field: %d (cleared)\n", config->vector_field_type);
             break;
 
         case RGFW_equals:  // + key
@@ -125,6 +126,12 @@ int main(void) {
     Config config = config_create_default();
     config_load_from_file(&config, "config.ini");
     config_print(&config);
+
+    // OpenGL version
+    // RGFW_glHints* hints = RGFW_getGlobalHints_OpenGL();
+    // hints->major = 3;
+    // hints->minor = 3;
+    // RGFW_setGlobalHints_OpenGL(hints);
     
     // Create RGFW window
     RGFW_window* win = RGFW_createWindow(
@@ -182,7 +189,7 @@ int main(void) {
             }
 
             if (event.type == RGFW_keyPressed) {
-                handle_input(win, (RGFW_keyEvent*)&event, &config, ps, &camera);
+                handle_input(win, (RGFW_keyEvent*)&event, &config, &renderer, ps, &camera);
             }
         }
         

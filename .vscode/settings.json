@@ -2,6 +2,7 @@
     "files.associations": {
         "rgfw.h": "c",
         "cstdlib": "cpp",
-        "rgload.h": "c"
+        "rgload.h": "c",
+        "particles.h": "c"
     }
 }
