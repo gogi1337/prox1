@@ -43,19 +43,19 @@ static inline void build_view_cache(ViewCache* cache, const Camera* cam) {
 }
 
 // Grid-based particle spawning for even distribution
-static void particle_reset_in_view_grid(Particle* p, const Config* config, const ViewCache* cache,
-                                       int grid_x, int grid_y, int grid_size) {
-    // Calculate grid cell size
-    float step_x = cache->view_width / grid_size;
-    float step_y = cache->view_height / grid_size;
+// static void particle_reset_in_view_grid(Particle* p, const Config* config, const ViewCache* cache,
+//                                        int grid_x, int grid_y, int grid_size) {
+//     // Calculate grid cell size
+//     float step_x = cache->view_width / grid_size;
+//     float step_y = cache->view_height / grid_size;
     
-    // Position particle in grid cell with random offset
-    p->position.x = cache->left + grid_x * step_x + randf() * step_x * 0.8f + step_x * 0.1f;
-    p->position.y = cache->bottom + grid_y * step_y + randf() * step_y * 0.8f + step_y * 0.1f;
+//     // Position particle in grid cell with random offset
+//     p->position.x = cache->left + grid_x * step_x + randf() * step_x * 0.8f + step_x * 0.1f;
+//     p->position.y = cache->bottom + grid_y * step_y + randf() * step_y * 0.8f + step_y * 0.1f;
     
-    p->prev_position = p->position;
-    p->lifetime = 0.0f;
-}
+//     p->prev_position = p->position;
+//     p->lifetime = 0.0f;
+// }
 
 // Random spawn within camera view
 static void particle_reset_in_view(Particle* p, const Config* config, const ViewCache* cache) {
@@ -260,15 +260,15 @@ void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config
 void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt) {
     if (!ps || config->paused) return;
     
-    // Build view cache once for entire frame
     ViewCache cache;
     build_view_cache(&cache, cam);
     
-    // Pre-calculate constants
     float adaptive_step = config->integration_step / cam->zoom;
     float adjusted_dt = dt * config->simulation_speed * adaptive_step;
     
-    // Process all particles
+    // NEW: Randomly respawn a small percentage each frame for even distribution
+    int respawn_per_frame = ps->count / 200;  // 0.5% per frame
+    
     for (int i = 0; i < ps->count; i++) {
         Particle* p = &ps->particles[i];
         
@@ -276,58 +276,40 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
         vec2 velocity = vector_field_evaluate(p->position, config);
         update_particle_color(p, velocity);
         
-        // Integration methods
-        switch (config->integration_method) {
-            case INTEGRATION_EULER:
-                p->position.x += velocity.x * adjusted_dt;
-                p->position.y += velocity.y * adjusted_dt;
-                break;
-                
-            case INTEGRATION_RK2: {
-                vec2 k1 = velocity;
-                float dt_half = adjusted_dt * 0.5f;
-                vec2 pos_mid = {
-                    p->position.x + k1.x * dt_half,
-                    p->position.y + k1.y * dt_half
-                };
-                vec2 k2 = vector_field_evaluate(pos_mid, config);
-                p->position.x += k2.x * adjusted_dt;
-                p->position.y += k2.y * adjusted_dt;
-                break;
-            }
-                
-            case INTEGRATION_RK4: {
-                // Optimized RK4 with reduced temporary variables
-                float x0 = p->position.x;
-                float y0 = p->position.y;
-                
-                vec2 k1 = velocity;
-                float dt_half = adjusted_dt * 0.5f;
-                
-                vec2 pos2 = {x0 + k1.x * dt_half, y0 + k1.y * dt_half};
-                vec2 k2 = vector_field_evaluate(pos2, config);
-                
-                vec2 pos3 = {x0 + k2.x * dt_half, y0 + k2.y * dt_half};
-                vec2 k3 = vector_field_evaluate(pos3, config);
-                
-                vec2 pos4 = {x0 + k3.x * adjusted_dt, y0 + k3.y * adjusted_dt};
-                vec2 k4 = vector_field_evaluate(pos4, config);
-                
-                float dt_sixth = adjusted_dt * 0.16666667f; // 1/6
-                p->position.x = x0 + (k1.x + 2.0f*k2.x + 2.0f*k3.x + k4.x) * dt_sixth;
-                p->position.y = y0 + (k1.y + 2.0f*k2.y + 2.0f*k3.y + k4.y) * dt_sixth;
-                break;
-            }
-        }
+        // RK4 integration
+        
+        float x0 = p->position.x;
+        float y0 = p->position.y;
+        
+        vec2 k1 = velocity;
+        float dt_half = adjusted_dt * 0.5f;
+        
+        vec2 pos2 = {x0 + k1.x * dt_half, y0 + k1.y * dt_half};
+        vec2 k2 = vector_field_evaluate(pos2, config);
+        
+        vec2 pos3 = {x0 + k2.x * dt_half, y0 + k2.y * dt_half};
+        vec2 k3 = vector_field_evaluate(pos3, config);
+        
+        vec2 pos4 = {x0 + k3.x * adjusted_dt, y0 + k3.y * adjusted_dt};
+        vec2 k4 = vector_field_evaluate(pos4, config);
+        
+        float dt_sixth = adjusted_dt * 0.16666667f;
+        p->position.x = x0 + (k1.x + 2.0f*k2.x + 2.0f*k3.x + k4.x) * dt_sixth;
+        p->position.y = y0 + (k1.y + 2.0f*k2.y + 2.0f*k3.y + k4.y) * dt_sixth;
         
         p->lifetime += adjusted_dt;
         
-        // Reset particle if outside view or expired
-        if (is_particle_outside_view(p, &cache) || p->lifetime > config->particle_lifetime) {
+        bool outside = is_particle_outside_view(p, &cache);
+        bool expired = p->lifetime > config->particle_lifetime;
+        bool random_respawn = (i < respawn_per_frame) && (randf() < 0.01f);  // Random churn
+        
+        if (outside || expired || random_respawn) {
             particle_reset_in_view(p, config, &cache);
+            p->lifetime = randf() * 0.1f;
         }
     }
 }
+
 
 void particle_system_reset(ParticleSystem* ps, const Config* config, const Camera* cam) {
     particle_system_redistribute_grid(ps, config, cam);
