@@ -23,6 +23,13 @@ typedef struct {
     int target_count;    // Target count based on zoom level
 } ParticleSystem;
 
+// View cache
+typedef struct {
+    float left, right, bottom, top;
+    float view_width, view_height;
+    float margin_x, margin_y;
+} ViewCache;
+
 // Create a new particle system with initial capacity
 // Returns NULL on allocation failure
 ParticleSystem* particle_system_create(int initial_capacity);

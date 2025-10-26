@@ -6,13 +6,6 @@
 #include <time.h>
 #include <math.h>
 
-// Cache structure for per-frame calculations
-typedef struct {
-    float left, right, bottom, top;
-    float view_width, view_height;
-    float margin_x, margin_y;
-} ViewCache;
-
 // Random float between 0 and 1
 static inline float randf() {
     return (float)rand() / (float)RAND_MAX;
@@ -256,7 +249,7 @@ void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config
     particle_system_redistribute_grid(ps, config, cam);
 }
 
-// Main update with adaptive integration (HEAVILY OPTIMIZED)
+// Main update with adaptive integration
 void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt) {
     if (!ps || config->paused) return;
     
@@ -264,7 +257,6 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
     ViewCache cache;
     build_view_cache(&cache, cam);
     
-    // Pre-calculate constants
     float adaptive_step = config->integration_step / cam->zoom;
     float adjusted_dt = dt * config->simulation_speed * adaptive_step;
     
@@ -272,7 +264,6 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
     float area = cache.view_width * cache.view_height;
     float desired_density = ps->count / area;  // particles per square unit
     
-    // Continuous respawn rate: small percentage each frame
     int forced_respawns_per_frame = (int)(ps->count * 0.005f);  // 0.5% per frame
     if (forced_respawns_per_frame < 1) forced_respawns_per_frame = 1;
     
@@ -289,7 +280,7 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
         vec2 velocity = vector_field_evaluate(p->position, config);
         update_particle_color(p, velocity);
         
-        // Integration (RK4 recommended for smooth flow)
+        // RK4 Integration
         float x0 = p->position.x;
         float y0 = p->position.y;
         
@@ -321,8 +312,6 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
                              (randf() < 0.01f);
         
         if (outside || expired || force_respawn) {
-            // Spawn COMPLETELY RANDOMLY across entire visible area
-            // No grid, no patterns - pure uniform distribution
             p->position.x = cache.left + randf() * cache.view_width;
             p->position.y = cache.bottom + randf() * cache.view_height;
             p->prev_position = p->position;
