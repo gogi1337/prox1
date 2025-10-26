@@ -260,24 +260,36 @@ void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config
 void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt) {
     if (!ps || config->paused) return;
     
+    // Build view cache once for entire frame
     ViewCache cache;
     build_view_cache(&cache, cam);
     
+    // Pre-calculate constants
     float adaptive_step = config->integration_step / cam->zoom;
     float adjusted_dt = dt * config->simulation_speed * adaptive_step;
     
-    // NEW: Randomly respawn a small percentage each frame for even distribution
-    int respawn_per_frame = ps->count / 200;  // 0.5% per frame
+    // CRITICAL: Calculate particles per unit area for UNIFORM density
+    float area = cache.view_width * cache.view_height;
+    float desired_density = ps->count / area;  // particles per square unit
     
+    // Continuous respawn rate: small percentage each frame
+    int forced_respawns_per_frame = (int)(ps->count * 0.005f);  // 0.5% per frame
+    if (forced_respawns_per_frame < 1) forced_respawns_per_frame = 1;
+    
+    int respawn_counter = 0;
+    
+    // Process all particles
     for (int i = 0; i < ps->count; i++) {
         Particle* p = &ps->particles[i];
         
+        // Save previous position BEFORE integration
         p->prev_position = p->position;
+        
+        // Evaluate vector field
         vec2 velocity = vector_field_evaluate(p->position, config);
         update_particle_color(p, velocity);
         
-        // RK4 integration
-        
+        // Integration (RK4 recommended for smooth flow)
         float x0 = p->position.x;
         float y0 = p->position.y;
         
@@ -299,17 +311,29 @@ void particle_system_update_with_camera(ParticleSystem* ps, const Config* config
         
         p->lifetime += adjusted_dt;
         
+        // Check if particle needs respawning
         bool outside = is_particle_outside_view(p, &cache);
         bool expired = p->lifetime > config->particle_lifetime;
-        bool random_respawn = (i < respawn_per_frame) && (randf() < 0.01f);  // Random churn
         
-        if (outside || expired || random_respawn) {
-            particle_reset_in_view(p, config, &cache);
-            p->lifetime = randf() * 0.1f;
+        // CRITICAL: Force continuous uniform respawning
+        // This prevents clustering in stable flow regions
+        bool force_respawn = (respawn_counter < forced_respawns_per_frame) && 
+                             (randf() < 0.01f);
+        
+        if (outside || expired || force_respawn) {
+            // Spawn COMPLETELY RANDOMLY across entire visible area
+            // No grid, no patterns - pure uniform distribution
+            p->position.x = cache.left + randf() * cache.view_width;
+            p->position.y = cache.bottom + randf() * cache.view_height;
+            p->prev_position = p->position;
+            
+            // Random lifetime to prevent synchronization
+            p->lifetime = randf() * config->particle_lifetime * 0.2f;
+            
+            if (force_respawn) respawn_counter++;
         }
     }
 }
-
 
 void particle_system_reset(ParticleSystem* ps, const Config* config, const Camera* cam) {
     particle_system_redistribute_grid(ps, config, cam);
