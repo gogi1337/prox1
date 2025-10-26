@@ -173,6 +173,31 @@ void particle_system_adjust_count_for_zoom(ParticleSystem* ps, const Config* con
 }
 
 // Grid-based redistribution (OPTIMIZED)
+// void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config, const Camera* cam) {
+//     ViewCache cache;
+//     build_view_cache(&cache, cam);
+    
+//     int grid_size = (int)sqrtf((float)ps->count);
+    
+//     // Pre-calculate lifetime multiplier
+//     float lifetime_mult = config->particle_lifetime * 0.3f;
+    
+//     int idx = 0;
+//     for (int i = 0; i < grid_size && idx < ps->count; i++) {
+//         for (int j = 0; j < grid_size && idx < ps->count; j++) {
+//             particle_reset_in_view_grid(&ps->particles[idx], config, &cache, i, j, grid_size);
+//             ps->particles[idx].lifetime = randf() * lifetime_mult;
+//             idx++;
+//         }
+//     }
+    
+//     // Fill remaining particles randomly
+//     while (idx < ps->count) {
+//         particle_reset_in_view(&ps->particles[idx], config, &cache);
+//         ps->particles[idx].lifetime = randf() * lifetime_mult;
+//         idx++;
+//     }
+// }
 void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config, const Camera* cam) {
     ViewCache cache;
     build_view_cache(&cache, cam);
@@ -183,17 +208,31 @@ void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config,
     float lifetime_mult = config->particle_lifetime * 0.3f;
     
     int idx = 0;
+    
+    // Use Poisson disk-like distribution for better spacing
     for (int i = 0; i < grid_size && idx < ps->count; i++) {
         for (int j = 0; j < grid_size && idx < ps->count; j++) {
-            particle_reset_in_view_grid(&ps->particles[idx], config, &cache, i, j, grid_size);
+            float step_x = cache.view_width / grid_size;
+            float step_y = cache.view_height / grid_size;
+            
+            // Jittered grid: add random offset from cell center
+            float jitter_x = (randf() - 0.5f) * step_x * 0.8f;
+            float jitter_y = (randf() - 0.5f) * step_y * 0.8f;
+            
+            ps->particles[idx].position.x = cache.left + (i + 0.5f) * step_x + jitter_x;
+            ps->particles[idx].position.y = cache.bottom + (j + 0.5f) * step_y + jitter_y;
+            ps->particles[idx].prev_position = ps->particles[idx].position;
             ps->particles[idx].lifetime = randf() * lifetime_mult;
+            
             idx++;
         }
     }
     
-    // Fill remaining particles randomly
+    // Fill remaining particles with pure random distribution
     while (idx < ps->count) {
-        particle_reset_in_view(&ps->particles[idx], config, &cache);
+        ps->particles[idx].position.x = randf_range(cache.left, cache.right);
+        ps->particles[idx].position.y = randf_range(cache.bottom, cache.top);
+        ps->particles[idx].prev_position = ps->particles[idx].position;
         ps->particles[idx].lifetime = randf() * lifetime_mult;
         idx++;
     }

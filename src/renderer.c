@@ -198,7 +198,7 @@ void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* c
         
         glBindVertexArray(renderer->fade_vao);
         
-        float fade_color[4] = {0.0f, 0.0f, 0.0f, 0.015f};
+        float fade_color[4] = {0.0f, 0.0f, 0.0f, 0.08f};  // Was 0.015f
         glUniform4fv(renderer->fade_color_loc, 1, fade_color);
         
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);

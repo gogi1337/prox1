@@ -145,6 +145,8 @@ int main(void) {
         return 1;
     }
 
+    RGFW_window_swapInterval_OpenGL(win, 1); // VSync
+
     Camera camera = camera_create();
     
     Renderer* renderer = renderer_create();
