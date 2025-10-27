@@ -38,7 +38,7 @@ float get_delta_time() {
 }
 
 // Handle keyboard input
-void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Renderer* renderer, ParticleSystem* ps, Camera* cam) {
+void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Renderer* renderer, ParticleSystem* ps, Camera* camera) {
     switch (event->value) {
         case RGFW_space:
             // Toggle pause
@@ -48,7 +48,7 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
             
         case RGFW_r:
             // Reset particles
-            particle_system_reset(ps, config, cam);
+            particle_system_redistribute_grid(ps, config, camera);
             printf("Particles reset\n");
             break;
             
@@ -61,55 +61,55 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
         case RGFW_7:
         case RGFW_8:
             config->vector_field_type = event->value - RGFW_1;
-            particle_system_redistribute(ps, config, cam);
+            particle_system_redistribute(ps, config, camera);
             renderer_request_clear(renderer);  // Clear on next frame
             printf("Vector field: %d (cleared)\n", config->vector_field_type);
             break;
 
         case RGFW_equals:  // + key
         case RGFW_kpPlus: {
-            float old_zoom = cam->zoom;
-            camera_zoom_in(cam);
+            float old_zoom = camera->zoom;
+            camera_zoom_in(camera);
             // Always redistribute on any zoom change
-            if (cam->zoom != old_zoom) {
-                particle_system_redistribute(ps, config, cam);
-                printf("Zoom: %.2f (redistributed)\n", cam->zoom);
+            if (camera->zoom != old_zoom) {
+                particle_system_redistribute(ps, config, camera);
+                printf("Zoom: %.2f (redistributed)\n", camera->zoom);
             }
             break;
         }
 
         case RGFW_minus:
         case RGFW_kpMinus: {
-            float old_zoom = cam->zoom;
-            camera_zoom_out(cam);
+            float old_zoom = camera->zoom;
+            camera_zoom_out(camera);
             // Always redistribute on any zoom change
-            if (cam->zoom != old_zoom) {
-                particle_system_redistribute(ps, config, cam);
-                printf("Zoom: %.2f (redistributed)\n", cam->zoom);
+            if (camera->zoom != old_zoom) {
+                particle_system_redistribute(ps, config, camera);
+                printf("Zoom: %.2f (redistributed)\n", camera->zoom);
             }
             break;
         }
         // Camera pan (WASD or Arrow keys)
         case RGFW_w:
         case RGFW_up:
-            camera_pan(cam, 0, 0.1f);
+            camera_pan(camera, 0, 0.1f);
             break;
         case RGFW_s:
         case RGFW_down:
-            camera_pan(cam, 0, -0.1f);
+            camera_pan(camera, 0, -0.1f);
             break;
         case RGFW_a:
         case RGFW_left:
-            camera_pan(cam, -0.1f, 0);
+            camera_pan(camera, -0.1f, 0);
             break;
         case RGFW_d:
         case RGFW_right:
-            camera_pan(cam, 0.1f, 0);
+            camera_pan(camera, 0.1f, 0);
             break;
         
         // Reset camera
         case RGFW_c:
-            camera_reset(cam);
+            camera_reset(camera);
             printf("Camera reset\n");
             break;
             
@@ -164,7 +164,7 @@ int main(void) {
         return 1;
     }
     
-    particle_system_init_particles_with_camera(ps, &config, &camera);
+    particle_system_redistribute_grid(ps, &config, &camera);
     
     printf("SPACE   - Pause/Resume\n");
     printf("R       - Reset particles\n");
@@ -191,11 +191,11 @@ int main(void) {
             }
 
             if (event.type == RGFW_keyPressed) {
-                handle_input(win, (RGFW_keyEvent*)&event, &config, &renderer, ps, &camera);
+                handle_input(win, (RGFW_keyEvent*)&event, &config, renderer, ps, &camera);
             }
         }
         
-        particle_system_update_with_camera(ps, &config, &camera, dt);
+        particle_system_update(ps, &config, &camera, dt);
 
         renderer_update_particles(renderer, ps);
         renderer_draw(renderer, ps, &config, &camera);

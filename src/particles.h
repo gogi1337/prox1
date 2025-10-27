@@ -30,33 +30,14 @@ typedef struct {
     float margin_x, margin_y;
 } ViewCache;
 
-// Create a new particle system with initial capacity
-// Returns NULL on allocation failure
 ParticleSystem* particle_system_create(int initial_capacity);
-
-// Free all memory associated with particle system
-void particle_system_destroy(ParticleSystem* ps);
-
-// Resize particle array to new count (handles reallocation if needed)
+void particle_system_init_particles(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_resize(ParticleSystem* ps, int new_count);
-
-// Initialize particles with grid-based distribution in camera view
-void particle_system_init_particles_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam);
-
-// Main update function: integrates particle positions and handles respawning
-// Uses adaptive time-stepping based on camera zoom
-void particle_system_update_with_camera(ParticleSystem* ps, const Config* config, const Camera* cam, float dt);
-
-// Redistribute particles randomly within camera view
 void particle_system_redistribute(ParticleSystem* ps, const Config* config, const Camera* cam);
-
-// Redistribute particles in a grid pattern (more even distribution)
 void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config, const Camera* cam);
-
-// Dynamically adjust particle count based on visible area (zoom level)
+void particle_system_update(ParticleSystem* ps, const Config* config, const Camera* cam, float dt);
 void particle_system_adjust_count_for_zoom(ParticleSystem* ps, const Config* config, const Camera* cam);
-
-// Reset all particles (uses grid distribution)
 void particle_system_reset(ParticleSystem* ps, const Config* config, const Camera* cam);
+void particle_system_destroy(ParticleSystem* ps);
 
 #endif // PARTICLES_H
