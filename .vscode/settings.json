@@ -3,6 +3,7 @@
         "rgfw.h": "c",
         "cstdlib": "cpp",
         "rgload.h": "c",
-        "particles.h": "c"
+        "particles.h": "c",
+        "field_common.h": "c"
     }
 }
