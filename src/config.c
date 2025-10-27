@@ -27,7 +27,6 @@ Config config_create_default() {
     config.field_scale = 1.0f;
     
     // Integration settings
-    config.integration_method = INTEGRATION_EULER;
     config.integration_step = 0.01f;
     
     // Simulation settings
@@ -101,8 +100,6 @@ bool config_load_from_file(Config* config, const char* filename) {
                 config->vector_field_num = (int)atoi(value_start);
             } else if (strcmp(key_start, "field_scale") == 0) {
                 config->field_scale = (float)atof(value_start);
-            } else if (strcmp(key_start, "integration_method") == 0) {
-                config->integration_method = (IntegrationMethod)atoi(value_start);
             } else if (strcmp(key_start, "integration_step") == 0) {
                 config->integration_step = (float)atof(value_start);
             } else if (strcmp(key_start, "simulation_speed") == 0) {
@@ -150,7 +147,6 @@ bool config_save_to_file(const Config* config, const char* filename) {
     fprintf(file, "field_scale = %.2f\n\n", config->field_scale);
     
     fprintf(file, "# Integration Settings\n");
-    fprintf(file, "integration_method = %d\n", config->integration_method);
     fprintf(file, "integration_step = %.4f\n\n", config->integration_step);
     
     fprintf(file, "# Simulation Settings\n");
@@ -177,8 +173,8 @@ void config_print(const Config* config) {
            config->particle_color[2], config->particle_color[3]);
     printf("Vector Field: %d (scale: %.2f)\n",
            config->vector_field_num, config->field_scale);
-    printf("Integration: method=%d, step=%.4f\n",
-           config->integration_method, config->integration_step);
+    printf("Integration: step=%.4f\n",
+           config->integration_step);
     printf("Simulation Speed: %.2f\n", config->simulation_speed);
     printf("Trail Length: %d\n", config->trail_length);
     printf("Background Color: (%.2f, %.2f, %.2f, %.2f)\n",

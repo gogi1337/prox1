@@ -3,13 +3,6 @@
 
 #include <stdbool.h>
 
-// Integration method enumeration
-typedef enum {
-    INTEGRATION_EULER,
-    INTEGRATION_RK2,
-    INTEGRATION_RK4
-} IntegrationMethod;
-
 // Configuration structure
 typedef struct {
     // Window settings
@@ -29,7 +22,6 @@ typedef struct {
     float field_scale;
     
     // Integration settings
-    IntegrationMethod integration_method;
     float integration_step;
     
     // Simulation settings
