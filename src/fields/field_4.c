@@ -1,11 +1,13 @@
 #include "../field_common.h"
 
-// Field 4: Turbulent Saddle
+// Field 4: Hopf field
 FIELD_IMPL(field_4) {
     vec2 v;
-    v.x = (sinf(p.x * p.y * 0.5f) * 3.0f - cosf(p.y * 2.0f)) * scale;
-    v.y = (cosf(p.x * p.y * 0.5f) * 3.0f + sinf(p.x * 2.0f)) * scale;
+    float r_squared = p.x * p.x + p.y * p.y;
+    float mu = 1.0f - r_squared;
+    v.x = (mu * p.x - p.y) * scale;
+    v.y = (p.x + mu * p.y) * scale;
     return v;
 }
 
-REGISTER_FIELD(3, field_4, "Turbulent Saddle");
+REGISTER_FIELD(3, field_4, "Hopf Field");

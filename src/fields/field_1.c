@@ -1,12 +1,14 @@
 #include "../field_common.h"
 
-// Field 1: Perturbed Vortex
+// Field 1: Lorenz field
 FIELD_IMPL(field_1) {
     vec2 v;
-    v.x = (-p.y + sinf(p.x * 0.5f) * 0.5f) * scale;
-    v.y = (p.x + cosf(p.y * 0.5f) * 0.5f) * scale;
+    float sigma = 10.0f;
+    float rho = 28.0f;
+    v.x = sigma * (p.y - p.x) * 0.05f * scale;
+    v.y = (p.x * (rho - p.x * p.x - p.y * p.y) - p.y) * 0.05f * scale;
     return v;
 }
 
 // Auto-register this field at startup
-REGISTER_FIELD(0, field_1, "Perturbed Vortex");
+REGISTER_FIELD(0, field_1, "Lorenz Field");
