@@ -61,11 +61,11 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
         case RGFW_7:
         case RGFW_8:
         case RGFW_9:
-            config->vector_field_type = event->value - RGFW_1;
+            config->vector_field_num = event->value - RGFW_1;
             printf("%d", event->value - RGFW_1);
             particle_system_redistribute(ps, config, camera);
             renderer_request_clear(renderer);  // Clear on next frame
-            printf("Vector field: %d (cleared)\n", config->vector_field_type);
+            printf("Vector field: %d\n", config->vector_field_num);
             break;
 
         case RGFW_equals:  // + key

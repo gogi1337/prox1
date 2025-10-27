@@ -3,19 +3,6 @@
 
 #include <stdbool.h>
 
-// Vector field type enumeration
-typedef enum {
-    FIELD_1 = 0,
-    FIELD_2,
-    FIELD_3,
-    FIELD_4,
-    FIELD_5,
-    FIELD_6,
-    FIELD_7,
-    FIELD_8,
-    FIELD_9, 
-} VectorFieldType;
-
 // Integration method enumeration
 typedef enum {
     INTEGRATION_EULER,
@@ -38,7 +25,7 @@ typedef struct {
     float particle_color[4];
     
     // Vector field settings
-    VectorFieldType vector_field_type;
+    int vector_field_num;
     float field_scale;
     
     // Integration settings

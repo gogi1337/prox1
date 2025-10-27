@@ -23,7 +23,7 @@ Config config_create_default() {
     config.particle_color[3] = 0.8f;  // A
     
     // Vector field settings
-    config.vector_field_type = FIELD_VORTEX;
+    config.vector_field_num = 1;
     config.field_scale = 1.0f;
     
     // Integration settings
@@ -97,8 +97,8 @@ bool config_load_from_file(Config* config, const char* filename) {
                        &config->particle_color[1],
                        &config->particle_color[2],
                        &config->particle_color[3]);
-            } else if (strcmp(key_start, "vector_field_type") == 0) {
-                config->vector_field_type = (VectorFieldType)atoi(value_start);
+            } else if (strcmp(key_start, "vector_field_num") == 0) {
+                config->vector_field_num = (int)atoi(value_start);
             } else if (strcmp(key_start, "field_scale") == 0) {
                 config->field_scale = (float)atof(value_start);
             } else if (strcmp(key_start, "integration_method") == 0) {
@@ -146,7 +146,7 @@ bool config_save_to_file(const Config* config, const char* filename) {
             config->particle_color[2], config->particle_color[3]);
     
     fprintf(file, "# Vector Field Settings\n");
-    fprintf(file, "vector_field_type = %d\n", config->vector_field_type);
+    fprintf(file, "vector_field_num = %d\n", config->vector_field_num);
     fprintf(file, "field_scale = %.2f\n\n", config->field_scale);
     
     fprintf(file, "# Integration Settings\n");
@@ -176,7 +176,7 @@ void config_print(const Config* config) {
            config->particle_color[0], config->particle_color[1],
            config->particle_color[2], config->particle_color[3]);
     printf("Vector Field: %d (scale: %.2f)\n",
-           config->vector_field_type, config->field_scale);
+           config->vector_field_num, config->field_scale);
     printf("Integration: method=%d, step=%.4f\n",
            config->integration_method, config->integration_step);
     printf("Simulation Speed: %.2f\n", config->simulation_speed);

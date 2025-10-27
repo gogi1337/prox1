@@ -129,7 +129,7 @@ vec2 get_velocity(vec2 p, int field_type, float scale) {
 }
 
 vec2 vector_field_evaluate(vec2 p, const Config* config) {
-    VectorFieldFunc func = vector_field_get(config->vector_field_type);
+    VectorFieldFunc func = vector_field_get(config->vector_field_num);
     if (func) {
         return func(p, config->field_scale);
     }
