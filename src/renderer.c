@@ -5,14 +5,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-
 #include <GL/gl.h>
-
-// Vertex data structure for GPU
-typedef struct {
-    float position[2];
-    float color[4];
-} ParticleVertex;
 
 // Helper function to check OpenGL errors (debug only)
 static void check_gl_error(const char* operation) {

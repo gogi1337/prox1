@@ -22,14 +22,15 @@ float vec2_dot(vec2 a, vec2 b);
 vec2 vec2_normalize(vec2 v);
 
 // Individual vector field functions
-vec2 field_vortex(vec2 p, float scale);
-vec2 field_saddle(vec2 p, float scale);
-vec2 field_source(vec2 p, float scale);
-vec2 field_sink(vec2 p, float scale);
-vec2 field_wave(vec2 p, float scale);
-vec2 field_lorenz(vec2 p, float scale);
-vec2 field_hopf(vec2 p, float scale);
-vec2 field_galaxy(vec2 p, float scale);
+vec2 field_1(vec2 p, float scale);
+vec2 field_2(vec2 p, float scale);
+vec2 field_3(vec2 p, float scale);
+vec2 field_4(vec2 p, float scale);
+vec2 field_5(vec2 p, float scale);
+vec2 field_6(vec2 p, float scale);
+vec2 field_7(vec2 p, float scale);
+vec2 field_8(vec2 p, float scale);
+vec2 field_9(vec2 p, float scale);
 
 // Get vector field function by type
 VectorFieldFunc get_vector_field(int field_type);

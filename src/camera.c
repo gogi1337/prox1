@@ -6,7 +6,7 @@ Camera camera_create(void) {
     cam.x = 0.0f;
     cam.y = 0.0f;
     cam.zoom = 1.0f;
-    cam.min_zoom = 0.1f;
+    cam.min_zoom = 0.05f;
     cam.max_zoom = 10.0f;
     cam.move_speed = 2.0f;
     cam.zoom_speed = 0.1f;

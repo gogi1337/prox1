@@ -5,16 +5,15 @@
 
 // Vector field type enumeration
 typedef enum {
-    FIELD_VORTEX,
-    FIELD_SADDLE,
-    FIELD_SOURCE,
-    FIELD_SINK,
-    FIELD_WAVE,
-    FIELD_CUSTOM,
-    FIELD_COUNT,
-    FIELD_LORENZ,
-    FIELD_HOPF,
-    FIELD_GALAXY, 
+    FIELD_1 = 0,
+    FIELD_2,
+    FIELD_3,
+    FIELD_4,
+    FIELD_5,
+    FIELD_6,
+    FIELD_7,
+    FIELD_8,
+    FIELD_9, 
 } VectorFieldType;
 
 // Integration method enumeration

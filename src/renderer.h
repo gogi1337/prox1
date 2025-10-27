@@ -36,7 +36,12 @@ typedef struct {
     bool should_clear;
 } Renderer;
 
-// Renderer functions
+// Vertex data structure for GPU
+typedef struct {
+    float position[2];
+    float color[4];
+} ParticleVertex;
+
 Renderer* renderer_create();
 bool renderer_init(Renderer* renderer, int window_width, int window_height);
 void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps);
