@@ -16,16 +16,6 @@ static inline float randf_range(float min, float max) {
     return min + randf() * (max - min);
 }
 
-// Fast inverse square root (pure magic)
-static inline float fast_inv_sqrt(float x) {
-    float xhalf = 0.5f * x;
-    int i = *(int*)&x;
-    i = 0x5f3759df - (i >> 1);
-    x = *(float*)&i;
-    x = x * (1.5f - xhalf * x * x);
-    return x;
-}
-
 // Build view cache once per frame
 static inline void build_view_cache(ViewCache* cache, const Camera* cam) {
     camera_get_view_bounds(cam, &cache->left, &cache->right, &cache->bottom, &cache->top);
@@ -36,7 +26,7 @@ static inline void build_view_cache(ViewCache* cache, const Camera* cam) {
 }
 
 // Random spawn within camera view
-static void particle_reset_in_view(Particle* p, const Config* config, const ViewCache* cache) {
+static void particle_reset_in_view(Particle* p, const ViewCache* cache) {
     p->position.x = randf_range(cache->left, cache->right);
     p->position.y = randf_range(cache->bottom, cache->top);
     p->prev_position = p->position;
@@ -82,7 +72,7 @@ ParticleSystem* particle_system_create(int initial_capacity) {
         return NULL;
     }
     
-    ps->particles = (Particle*)malloc(sizeof(Particle) * initial_capacity);
+    ps->particles = (Particle*)calloc(initial_capacity, sizeof(Particle));
     if (!ps->particles) {
         free(ps);
         fprintf(stderr, "Error: Failed to allocate particles\n");
@@ -90,29 +80,9 @@ ParticleSystem* particle_system_create(int initial_capacity) {
     }
     
     ps->count = initial_capacity;
-    ps->capacity = initial_capacity;
-    ps->target_count = initial_capacity;
     
     srand((unsigned int)time(NULL));
     return ps;
-}
-
-void particle_system_resize(ParticleSystem* ps, int new_count) {
-    if (new_count <= 0 || !ps) return;
-    
-    // Use growth factor to reduce realloc calls (1.5x strategy)
-    if (new_count > ps->capacity) {
-        int new_capacity = (int)(new_count * 1.5f);
-        Particle* new_particles = (Particle*)realloc(ps->particles, sizeof(Particle) * new_capacity);
-        if (!new_particles) {
-            fprintf(stderr, "Error: Failed to resize particle array\n");
-            return;
-        }
-        ps->particles = new_particles;
-        ps->capacity = new_capacity;
-    }
-    
-    ps->count = new_count;
 }
 
 // Random redistribution
@@ -123,7 +93,7 @@ void particle_system_redistribute(ParticleSystem* ps, const Config* config, cons
     float lifetime_mult = config->particle_lifetime * 0.5f;
     
     for (int i = 0; i < ps->count; i++) {
-        particle_reset_in_view(&ps->particles[i], config, &cache);
+        particle_reset_in_view(&ps->particles[i], &cache);
         ps->particles[i].lifetime = randf() * lifetime_mult;
     }
 }
@@ -171,104 +141,66 @@ void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config,
 
 // Main update with adaptive integration
 void particle_system_update(ParticleSystem* ps, const Config* config, const Camera* cam, float dt) {
-    if (!ps || config->paused) return;
-    
+    if (!ps || ps->count <= 0 || config->paused) return;
+
+    VectorFieldFunc field = vector_field_get(config->vector_field_num);
+    if (!field) return;
+    const float scale = config->field_scale;
+
     // Build view cache once for entire frame
     ViewCache cache;
     build_view_cache(&cache, cam);
-    
-    float adaptive_step = config->integration_step / cam->zoom;
-    float adjusted_dt = dt * config->simulation_speed * adaptive_step;
-    
-    // CRITICAL: Calculate particles per unit area for UNIFORM density
-    float area = cache.view_width * cache.view_height;
-    float desired_density = ps->count / area;  // particles per square unit
-    
-    int forced_respawns_per_frame = (int)(ps->count * 0.005f);  // 0.5% per frame
-    if (forced_respawns_per_frame < 1) forced_respawns_per_frame = 1;
-    
-    int respawn_counter = 0;
-    
-    // Process all particles
+
+    float sim_dt = dt * config->simulation_speed;
+    float adjusted_dt = sim_dt * config->integration_step / cam->zoom;
+
     for (int i = 0; i < ps->count; i++) {
         Particle* p = &ps->particles[i];
-        
+
         // Save previous position BEFORE integration
         p->prev_position = p->position;
-        
-        // Evaluate vector field
-        vec2 velocity = vector_field_evaluate(p->position, config);
+
+        vec2 velocity = field(p->position, scale);
         update_particle_color(p, velocity);
-        
+
         // RK4 Integration
         float x0 = p->position.x;
         float y0 = p->position.y;
-        
+
         vec2 k1 = velocity;
         float dt_half = adjusted_dt * 0.5f;
-        
+
         vec2 pos2 = {x0 + k1.x * dt_half, y0 + k1.y * dt_half};
-        vec2 k2 = vector_field_evaluate(pos2, config);
-        
+        vec2 k2 = field(pos2, scale);
+
         vec2 pos3 = {x0 + k2.x * dt_half, y0 + k2.y * dt_half};
-        vec2 k3 = vector_field_evaluate(pos3, config);
-        
+        vec2 k3 = field(pos3, scale);
+
         vec2 pos4 = {x0 + k3.x * adjusted_dt, y0 + k3.y * adjusted_dt};
-        vec2 k4 = vector_field_evaluate(pos4, config);
-        
+        vec2 k4 = field(pos4, scale);
+
         float dt_sixth = adjusted_dt * 0.16666667f;
         p->position.x = x0 + (k1.x + 2.0f*k2.x + 2.0f*k3.x + k4.x) * dt_sixth;
         p->position.y = y0 + (k1.y + 2.0f*k2.y + 2.0f*k3.y + k4.y) * dt_sixth;
-        
-        p->lifetime += adjusted_dt;
-        
-        // Check if particle needs respawning
-        bool outside = is_particle_outside_view(p, &cache);
-        bool expired = p->lifetime > config->particle_lifetime;
-        
-        // CRITICAL: Force continuous uniform respawning
-        // This prevents clustering in stable flow regions
-        bool force_respawn = (respawn_counter < forced_respawns_per_frame) && 
-                             (randf() < 0.01f);
-        
-        if (outside || expired || force_respawn) {
-            p->position.x = cache.left + randf() * cache.view_width;
-            p->position.y = cache.bottom + randf() * cache.view_height;
-            p->prev_position = p->position;
-            
+
+        // Lifetime is real simulation seconds, independent of zoom and step size
+        p->lifetime += sim_dt;
+
+        if (is_particle_outside_view(p, &cache) || p->lifetime > config->particle_lifetime) {
+            particle_reset_in_view(p, &cache);
             // Random lifetime to prevent synchronization
             p->lifetime = randf() * config->particle_lifetime * 0.2f;
-            
-            if (force_respawn) respawn_counter++;
         }
     }
-}
 
-// Calculate target particle count based on visible area
-void particle_system_adjust_count_for_zoom(ParticleSystem* ps, const Config* config, const Camera* cam) {
-    ViewCache cache;
-    build_view_cache(&cache, cam);
-    
-    float visible_area = cache.view_width * cache.view_height;
-    
-    // Base density: particles per unit area
-    float base_density = config->particle_count * 0.25f; // 0.25 = 1/4.0
-    
-    int target = (int)(base_density * visible_area);
-    
-    // Clamp to reasonable bounds
-    if (target < 1000) target = 1000;
-    if (target > 200000) target = 200000;
-    
-    ps->target_count = target;
-    
-    // Only resize if difference is significant (>20%)
-    int diff = abs(ps->count - target);
-    if (diff > ps->count / 5) {  // 1/5 = 20%
-#ifdef DEBUG
-        printf("Adjusted particle count: %d (zoom: %.2f)\n", target, cam->zoom);
-#endif
-        particle_system_resize(ps, target);
+    // Force 0.5% of random particles to respawn each frame so they cannot
+    // clump in stable flow regions. Random indices keep this uniform.
+    int forced = ps->count / 200;
+    if (forced < 1) forced = 1;
+    for (int k = 0; k < forced; k++) {
+        Particle* p = &ps->particles[rand() % ps->count];
+        particle_reset_in_view(p, &cache);
+        p->lifetime = randf() * config->particle_lifetime * 0.2f;
     }
 }
 

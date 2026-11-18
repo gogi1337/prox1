@@ -9,13 +9,6 @@
 #define PI 3.14159265f
 #define TWO_PI 6.28318531f
 
-// Field metadata structure
-typedef struct {
-    const char* name;
-    VectorFieldFunc func;
-    int index;
-} FieldMetadata;
-
 // Macro to register a field automatically
 #define REGISTER_FIELD(idx, func_name, display_name) \
     __attribute__((constructor)) \

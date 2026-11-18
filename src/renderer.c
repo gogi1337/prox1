@@ -1,3 +1,4 @@
+#define GL_GLEXT_PROTOTYPES
 #include "renderer.h"
 
 #include <stdio.h>
@@ -6,9 +7,11 @@
 #include <string.h>
 #include <math.h>
 #include <GL/gl.h>
+#include <GL/glext.h>
 
 // Helper function to check OpenGL errors (debug only)
 static void check_gl_error(const char* operation) {
+    (void)operation;
 #ifdef DEBUG
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
@@ -18,7 +21,7 @@ static void check_gl_error(const char* operation) {
 }
 
 Renderer* renderer_create() {
-    Renderer* renderer = (Renderer*)malloc(sizeof(Renderer));
+    Renderer* renderer = (Renderer*)calloc(1, sizeof(Renderer));
     if (!renderer) {
         fprintf(stderr, "Error: Failed to allocate renderer\n");
         return NULL;
@@ -131,11 +134,17 @@ void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps) {
     if (!renderer || !renderer->initialized || !ps || ps->count == 0) return;
     
     // Allocate vertex data (2 vertices per particle for line rendering)
-    ParticleVertex* vertices = (ParticleVertex*)malloc(sizeof(ParticleVertex) * ps->count * 2);
-    if (!vertices) {
-        fprintf(stderr, "Error: Failed to allocate particle vertices\n");
-        return;
+    int needed = ps->count * 2;
+    if (needed > renderer->vertex_capacity) {
+        ParticleVertex* grown = (ParticleVertex*)realloc(renderer->vertices, sizeof(ParticleVertex) * needed);
+        if (!grown) {
+            fprintf(stderr, "Error: Failed to allocate particle vertices\n");
+            return;
+        }
+        renderer->vertices = grown;
+        renderer->vertex_capacity = needed;
     }
+    ParticleVertex* vertices = renderer->vertices;
     
     // Build vertex data (lines from prev_position to position)
     for (int i = 0; i < ps->count; i++) {
@@ -167,7 +176,6 @@ void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps) {
     
     renderer->particle_count = ps->count * 2;
     
-    free(vertices);
     check_gl_error("Update particles");
 }
 
@@ -177,7 +185,7 @@ void renderer_request_clear(Renderer* renderer) {
     }
 }
 
-void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* config, const Camera* cam) {
+void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Camera* cam) {
     if (!renderer || !renderer->initialized || !ps || renderer->particle_count == 0) return;
     
     // Handle clear request
@@ -244,6 +252,7 @@ void renderer_destroy(Renderer* renderer) {
             shader_delete(&renderer->particle_shader);
             shader_delete(&renderer->fade_shader);
         }
+        free(renderer->vertices);
         free(renderer);
     }
 }

@@ -9,6 +9,12 @@
 #include <stdbool.h>
 #include <GL/gl.h>
 
+// Vertex data structure for GPU
+typedef struct {
+    float position[2];
+    float color[4];
+} ParticleVertex;
+
 // Renderer structure
 typedef struct {
     // Particle rendering
@@ -27,25 +33,20 @@ typedef struct {
     int particle_projection_loc;
     
     // Fade shader uniform locations
-    int fade_projection_loc;
     int fade_color_loc;
     
     // Rendering state
     int particle_count;
+    ParticleVertex* vertices;  // CPU staging buffer, reused every frame
+    int vertex_capacity;       // Size of vertices in elements
     bool initialized;
     bool should_clear;
 } Renderer;
 
-// Vertex data structure for GPU
-typedef struct {
-    float position[2];
-    float color[4];
-} ParticleVertex;
-
 Renderer* renderer_create();
 bool renderer_init(Renderer* renderer, int window_width, int window_height);
 void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps);
-void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Config* config, const Camera* cam);
+void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Camera* cam);
 void renderer_set_viewport(Renderer* renderer, int width, int height);
 void renderer_request_clear(Renderer* renderer);
 void renderer_destroy(Renderer* renderer);

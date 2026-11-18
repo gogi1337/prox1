@@ -10,7 +10,6 @@
 typedef struct {
     vec2 position;       // Current position in world space
     vec2 prev_position;  // Previous position (for trail rendering)
-    vec2 velocity;       // Current velocity (not actively used, can be removed if unused)
     float color[4];      // RGBA color (computed from velocity magnitude)
     float lifetime;      // Current age of particle (seconds)
 } Particle;
@@ -18,9 +17,7 @@ typedef struct {
 // Dynamic particle system
 typedef struct {
     Particle* particles;  // Dynamic array of particles
-    int count;           // Current number of active particles
-    int capacity;        // Allocated capacity (may be > count)
-    int target_count;    // Target count based on zoom level
+    int count;           // Number of particles
 } ParticleSystem;
 
 // View cache
@@ -31,13 +28,9 @@ typedef struct {
 } ViewCache;
 
 ParticleSystem* particle_system_create(int initial_capacity);
-void particle_system_init_particles(ParticleSystem* ps, const Config* config, const Camera* cam);
-void particle_system_resize(ParticleSystem* ps, int new_count);
 void particle_system_redistribute(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_update(ParticleSystem* ps, const Config* config, const Camera* cam, float dt);
-void particle_system_adjust_count_for_zoom(ParticleSystem* ps, const Config* config, const Camera* cam);
-void particle_system_reset(ParticleSystem* ps, const Config* config, const Camera* cam);
 void particle_system_destroy(ParticleSystem* ps);
 
 #endif // PARTICLES_H

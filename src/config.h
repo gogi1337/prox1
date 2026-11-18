@@ -11,11 +11,7 @@ typedef struct {
     
     // Particle settings
     int particle_count;
-    float particle_size;
     float particle_lifetime;
-    
-    // Particle color (RGBA, 0.0 - 1.0)
-    float particle_color[4];
     
     // Vector field settings
     int vector_field_num;
@@ -27,17 +23,12 @@ typedef struct {
     // Simulation settings
     float simulation_speed;
     bool paused;
-    
-    // Rendering settings
-    float background_color[4];
-    int trail_length;
-    
+
 } Config;
 
 // Function declarations
 Config config_create_default();
 bool config_load_from_file(Config* config, const char* filename);
-bool config_save_to_file(const Config* config, const char* filename);
 void config_print(const Config* config);
 
 #endif // CONFIG_H

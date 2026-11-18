@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L  // clock_gettime under -std=c99
 #define RGFW_IMPLEMENTATION
 #define RGFW_BUFFER
 #define RGFW_OPENGL
@@ -19,22 +20,24 @@
 
 #include <stdio.h>
 #include <time.h>
-#include <math.h>
 
-// Calculate delta time
+// Wall-clock delta time in seconds (clock() would measure CPU time, not real time)
 float get_delta_time() {
-    static clock_t last_time = 0;
-    clock_t current_time = clock();
-    
-    if (last_time == 0) {
-        last_time = current_time;
+    static double last = 0.0;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    double now = (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+
+    if (last == 0.0) {
+        last = now;
         return 0.016f; // Default to ~60 FPS
     }
-    
-    float delta = (float)(current_time - last_time) / CLOCKS_PER_SEC;
-    last_time = current_time;
-    
-    return delta;
+
+    float dt = (float)(now - last);
+    last = now;
+
+    // After a stall (window drag, breakpoint) don't make particles jump
+    return dt > 0.05f ? 0.05f : dt;
 }
 
 // Handle keyboard input
@@ -62,7 +65,6 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
         case RGFW_8:
         case RGFW_9:
             config->vector_field_num = event->value - RGFW_1;
-            printf("%d", event->value - RGFW_1);
             particle_system_redistribute(ps, config, camera);
             renderer_request_clear(renderer);  // Clear on next frame
             printf("Vector field: %d\n", config->vector_field_num);
@@ -150,6 +152,7 @@ int main(void) {
     RGFW_window_swapInterval_OpenGL(win, 1); // VSync
 
     Camera camera = camera_create();
+    camera.aspect = (float)config.window_width / (float)config.window_height;
     
     Renderer* renderer = renderer_create();
     if (!renderer_init(renderer, config.window_width, config.window_height)) {
@@ -189,6 +192,7 @@ int main(void) {
                 config.window_width = win->w;
                 config.window_height = win->h;
                 renderer_set_viewport(renderer, win->w, win->h);
+                if (win->h > 0) camera.aspect = (float)win->w / (float)win->h;
                 printf("Window resized: %dx%d\n", win->w, win->h);
             }
 
@@ -200,7 +204,7 @@ int main(void) {
         particle_system_update(ps, &config, &camera, dt);
 
         renderer_update_particles(renderer, ps);
-        renderer_draw(renderer, ps, &config, &camera);
+        renderer_draw(renderer, ps, &camera);
         RGFW_window_swapBuffers_OpenGL(win);
     }
     
@@ -208,9 +212,6 @@ int main(void) {
     particle_system_destroy(ps);
     renderer_destroy(renderer);
     RGFW_window_close(win);
-    
-    // Save configuration
-    config_save_to_file(&config, "config.ini");
 
     return 0;
 }

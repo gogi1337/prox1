@@ -1,8 +1,10 @@
+#define GL_GLEXT_PROTOTYPES
 #include "shader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <GL/gl.h>
+#include <GL/glext.h>
 
 // Load shader source from file
 char* shader_load_source(const char* filename) {
@@ -131,62 +133,6 @@ ShaderProgram shader_create_program(const char* vertex_path, const char* fragmen
     
     printf("Shader program created successfully (ID: %u)\n", shader_program);
     return program;
-}
-
-// Use shader program
-void shader_use(const ShaderProgram* shader) {
-    if (shader && shader->is_valid) {
-        glUseProgram(shader->program_id);
-    }
-}
-
-// Set uniform values
-void shader_set_int(const ShaderProgram* shader, const char* name, int value) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniform1i(location, value);
-    }
-}
-
-void shader_set_float(const ShaderProgram* shader, const char* name, float value) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniform1f(location, value);
-    }
-}
-
-void shader_set_vec2(const ShaderProgram* shader, const char* name, float x, float y) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniform2f(location, x, y);
-    }
-}
-
-void shader_set_vec3(const ShaderProgram* shader, const char* name, float x, float y, float z) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniform3f(location, x, y, z);
-    }
-}
-
-void shader_set_vec4(const ShaderProgram* shader, const char* name, float x, float y, float z, float w) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniform4f(location, x, y, z, w);
-    }
-}
-
-void shader_set_mat4(const ShaderProgram* shader, const char* name, const float* matrix) {
-    if (!shader || !shader->is_valid) return;
-    int location = glGetUniformLocation(shader->program_id, name);
-    if (location != -1) {
-        glUniformMatrix4fv(location, 1, 0, matrix);
-    }
 }
 
 // Delete shader program

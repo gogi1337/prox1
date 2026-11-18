@@ -13,14 +13,7 @@ Config config_create_default() {
     
     // Particle settings
     config.particle_count = 5000;
-    config.particle_size = 2.0f;
     config.particle_lifetime = 10.0f;
-    
-    // Particle color (white with some transparency)
-    config.particle_color[0] = 1.0f;  // R
-    config.particle_color[1] = 1.0f;  // G
-    config.particle_color[2] = 1.0f;  // B
-    config.particle_color[3] = 0.8f;  // A
     
     // Vector field settings
     config.vector_field_num = 1;
@@ -32,13 +25,6 @@ Config config_create_default() {
     // Simulation settings
     config.simulation_speed = 1.0f;
     config.paused = false;
-    
-    // Rendering settings
-    config.background_color[0] = 0.1f;  // R
-    config.background_color[1] = 0.1f;  // G
-    config.background_color[2] = 0.1f;  // B
-    config.background_color[3] = 1.0f;  // A
-    config.trail_length = 0;  // 0 = no trails
     
     return config;
 }
@@ -86,16 +72,8 @@ bool config_load_from_file(Config* config, const char* filename) {
                 config->window_height = atoi(value_start);
             } else if (strcmp(key_start, "particle_count") == 0) {
                 config->particle_count = atoi(value_start);
-            } else if (strcmp(key_start, "particle_size") == 0) {
-                config->particle_size = (float)atof(value_start);
             } else if (strcmp(key_start, "particle_lifetime") == 0) {
                 config->particle_lifetime = (float)atof(value_start);
-            } else if (strcmp(key_start, "particle_color") == 0) {
-                sscanf(value_start, "%f,%f,%f,%f", 
-                       &config->particle_color[0],
-                       &config->particle_color[1],
-                       &config->particle_color[2],
-                       &config->particle_color[3]);
             } else if (strcmp(key_start, "vector_field_num") == 0) {
                 config->vector_field_num = (int)atoi(value_start);
             } else if (strcmp(key_start, "field_scale") == 0) {
@@ -104,61 +82,18 @@ bool config_load_from_file(Config* config, const char* filename) {
                 config->integration_step = (float)atof(value_start);
             } else if (strcmp(key_start, "simulation_speed") == 0) {
                 config->simulation_speed = (float)atof(value_start);
-            } else if (strcmp(key_start, "trail_length") == 0) {
-                config->trail_length = atoi(value_start);
-            } else if (strcmp(key_start, "background_color") == 0) {
-                sscanf(value_start, "%f,%f,%f,%f",
-                       &config->background_color[0],
-                       &config->background_color[1],
-                       &config->background_color[2],
-                       &config->background_color[3]);
             }
         }
     }
     
     fclose(file);
-    return true;
-}
 
-// Save configuration to file
-bool config_save_to_file(const Config* config, const char* filename) {
-    FILE* file = fopen(filename, "w");
-    if (!file) {
-        printf("Error: Could not write to config file '%s'\n", filename);
-        return false;
-    }
-    
-    fprintf(file, "# Vector Field Visualizer Configuration\n\n");
-    
-    fprintf(file, "# Window Settings\n");
-    fprintf(file, "window_width = %d\n", config->window_width);
-    fprintf(file, "window_height = %d\n\n", config->window_height);
-    
-    fprintf(file, "# Particle Settings\n");
-    fprintf(file, "particle_count = %d\n", config->particle_count);
-    fprintf(file, "particle_size = %.2f\n", config->particle_size);
-    fprintf(file, "particle_lifetime = %.2f\n", config->particle_lifetime);
-    fprintf(file, "particle_color = %.2f,%.2f,%.2f,%.2f\n\n",
-            config->particle_color[0], config->particle_color[1],
-            config->particle_color[2], config->particle_color[3]);
-    
-    fprintf(file, "# Vector Field Settings\n");
-    fprintf(file, "vector_field_num = %d\n", config->vector_field_num);
-    fprintf(file, "field_scale = %.2f\n\n", config->field_scale);
-    
-    fprintf(file, "# Integration Settings\n");
-    fprintf(file, "integration_step = %.4f\n\n", config->integration_step);
-    
-    fprintf(file, "# Simulation Settings\n");
-    fprintf(file, "simulation_speed = %.2f\n\n", config->simulation_speed);
-    
-    fprintf(file, "# Rendering Settings\n");
-    fprintf(file, "trail_length = %d\n", config->trail_length);
-    fprintf(file, "background_color = %.2f,%.2f,%.2f,%.2f\n",
-            config->background_color[0], config->background_color[1],
-            config->background_color[2], config->background_color[3]);
-    
-    fclose(file);
+    // Typos like "window_width = abc" parse as 0; keep the values usable
+    if (config->window_width < 100) config->window_width = 100;
+    if (config->window_height < 100) config->window_height = 100;
+    if (config->particle_count < 1) config->particle_count = 1;
+    if (config->particle_lifetime < 0.1f) config->particle_lifetime = 0.1f;
+    if (config->integration_step < 0.0001f) config->integration_step = 0.0001f;
     return true;
 }
 
@@ -166,19 +101,12 @@ bool config_save_to_file(const Config* config, const char* filename) {
 void config_print(const Config* config) {
     printf("=== Configuration ===\n");
     printf("Window: %dx%d\n", config->window_width, config->window_height);
-    printf("Particles: %d (size: %.2f, lifetime: %.2f)\n",
-           config->particle_count, config->particle_size, config->particle_lifetime);
-    printf("Particle Color: (%.2f, %.2f, %.2f, %.2f)\n",
-           config->particle_color[0], config->particle_color[1],
-           config->particle_color[2], config->particle_color[3]);
+    printf("Particles: %d (lifetime: %.2f)\n",
+           config->particle_count, config->particle_lifetime);
     printf("Vector Field: %d (scale: %.2f)\n",
            config->vector_field_num, config->field_scale);
     printf("Integration: step=%.4f\n",
            config->integration_step);
     printf("Simulation Speed: %.2f\n", config->simulation_speed);
-    printf("Trail Length: %d\n", config->trail_length);
-    printf("Background Color: (%.2f, %.2f, %.2f, %.2f)\n",
-           config->background_color[0], config->background_color[1],
-           config->background_color[2], config->background_color[3]);
     printf("====================\n");
 }
