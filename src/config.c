@@ -92,6 +92,7 @@ bool config_load_from_file(Config* config, const char* filename) {
     if (config->window_width < 100) config->window_width = 100;
     if (config->window_height < 100) config->window_height = 100;
     if (config->particle_count < 1) config->particle_count = 1;
+    if (config->particle_count > 5000000) config->particle_count = 5000000;  // renderer stores 2 vertices each in an int-sized count
     if (config->particle_lifetime < 0.1f) config->particle_lifetime = 0.1f;
     if (config->integration_step < 0.0001f) config->integration_step = 0.0001f;
     return true;

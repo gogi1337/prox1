@@ -26,6 +26,11 @@ void camera_zoom_out(Camera* cam);
 // Pan camera
 void camera_pan(Camera* cam, float dx, float dy);
 
+// Window pixel (origin top-left) to world coordinates
+void camera_screen_to_world(const Camera* cam, float screen_x, float screen_y,
+                            int window_width, int window_height,
+                            float* world_x, float* world_y);
+
 // Reset camera to default
 void camera_reset(Camera* cam);
 

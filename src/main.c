@@ -17,9 +17,12 @@
 #include "vector_field.h"
 #include "renderer.h"
 #include "camera.h"
+#include "hud.h"
 
 #include <stdio.h>
 #include <time.h>
+#include <math.h>
+#include <string.h>
 
 // Wall-clock delta time in seconds (clock() would measure CPU time, not real time)
 float get_delta_time() {
@@ -40,6 +43,65 @@ float get_delta_time() {
     return dt > 0.05f ? 0.05f : dt;
 }
 
+static bool show_hud = true;
+
+// Info panel (top-left), cursor crosshair and a key hint line (bottom-left)
+static void draw_hud(Hud* hud, const Config* config, const Camera* cam, RGFW_window* win, float fps) {
+    static const float panel[4] = {0.0f, 0.0f, 0.0f, 0.60f};
+    static const float label[4] = {0.55f, 0.75f, 0.90f, 1.0f};
+    static const float value[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    static const float warn[4]  = {1.0f, 0.70f, 0.30f, 1.0f};
+    static const float cross[4] = {1.0f, 1.0f, 1.0f, 0.55f};
+    const float pad = 8.0f, line = 20.0f;
+
+    int w = win->w, h = win->h;
+    int mx = 0, my = 0;
+    RGFW_window_getMouse(win, &mx, &my);
+    bool inside = mx >= 0 && my >= 0 && mx < w && my < h;
+
+    float left, right, bottom, top;
+    camera_get_view_bounds(cam, &left, &right, &bottom, &top);
+
+    char cursor[64] = "--", vec[64] = "--";
+    if (inside) {
+        float wx, wy;
+        camera_screen_to_world(cam, (float)mx, (float)my, w, h, &wx, &wy);
+        snprintf(cursor, sizeof(cursor), "x %+.3f  y %+.3f", wx, wy);
+        VectorFieldFunc field = vector_field_get(config->vector_field_num);
+        if (field) {
+            vec2 v = field((vec2){wx, wy}, config->field_scale);
+            snprintf(vec, sizeof(vec), "%+.2f %+.2f |v| %.2f", v.x, v.y, sqrtf(v.x * v.x + v.y * v.y));
+        }
+    }
+
+    char rows[7][64];
+    snprintf(rows[0], 64, "%d: %s", config->vector_field_num + 1, vector_field_get_name(config->vector_field_num));
+    snprintf(rows[1], 64, "%s", cursor);
+    snprintf(rows[2], 64, "%s", vec);
+    snprintf(rows[3], 64, "x %+.2f  y %+.2f  zoom %.2fx", cam->x, cam->y, cam->zoom);
+    snprintf(rows[4], 64, "x %+.2f..%+.2f  y %+.2f..%+.2f", left, right, bottom, top);
+    snprintf(rows[5], 64, "%d  %.0f fps", config->particle_count, fps);
+    snprintf(rows[6], 64, "x%.2f  step %.4f", config->simulation_speed, config->integration_step);
+    static const char* names[7] = {"Field    ", "Cursor   ", "Vector   ", "Camera   ", "View     ", "Particles", "Speed    "};
+
+    hud_rect(hud, 6, 6, 9 * 46 + 2 * pad, 7 * line + 2 * pad - 2, panel);
+    for (int i = 0; i < 7; i++) {
+        float y = 6 + pad + i * line;
+        hud_text(hud, 6 + pad, y, label, "%s", names[i]);
+        hud_text(hud, 6 + pad + 9 * 10, y, value, "%s", rows[i]);
+    }
+    if (config->paused) hud_text(hud, 6 + pad + 9 * 36, 6 + pad + 6 * line, warn, "PAUSED");
+
+    if (inside) {
+        hud_rect(hud, (float)mx - 8, (float)my, 17, 1, cross);
+        hud_rect(hud, (float)mx, (float)my - 8, 1, 17, cross);
+    }
+
+    const char* help = "H hud  SPACE pause  R reset  C camera  +/- zoom  WASD pan  1-9,0 field";
+    hud_rect(hud, 6, h - 6 - 26, 9 * (float)strlen(help) + 2 * pad, 26, panel);
+    hud_text(hud, 6 + pad, h - 6 - 22, label, "%s", help);
+}
+
 // Handle keyboard input
 void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Renderer* renderer, ParticleSystem* ps, Camera* camera) {
     switch (event->value) {
@@ -49,9 +111,14 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
             printf("Simulation %s\n", config->paused ? "paused" : "resumed");
             break;
             
+        case RGFW_h:
+            show_hud = !show_hud;
+            break;
+
         case RGFW_r:
             // Reset particles
             particle_system_redistribute_grid(ps, config, camera);
+            renderer_request_clear(renderer);
             printf("Particles reset\n");
             break;
             
@@ -64,7 +131,8 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
         case RGFW_7:
         case RGFW_8:
         case RGFW_9:
-            config->vector_field_num = event->value - RGFW_1;
+        case RGFW_0:  // key 0 is field 10
+            config->vector_field_num = (event->value == RGFW_0) ? 9 : event->value - RGFW_1;
             particle_system_redistribute(ps, config, camera);
             renderer_request_clear(renderer);  // Clear on next frame
             printf("Vector field: %d\n", config->vector_field_num);
@@ -114,6 +182,8 @@ void handle_input(RGFW_window* win, RGFW_keyEvent* event, Config* config, Render
         // Reset camera
         case RGFW_c:
             camera_reset(camera);
+            particle_system_redistribute(ps, config, camera);
+            renderer_request_clear(renderer);
             printf("Camera reset\n");
             break;
             
@@ -152,15 +222,20 @@ int main(void) {
     RGFW_window_swapInterval_OpenGL(win, 1); // VSync
 
     Camera camera = camera_create();
-    camera.aspect = (float)config.window_width / (float)config.window_height;
+    camera.aspect = (float)win->w / (float)win->h;  // the window manager may not give the requested size
     
     Renderer* renderer = renderer_create();
-    if (!renderer_init(renderer, config.window_width, config.window_height)) {
+    if (!renderer_init(renderer, win->w, win->h)) {
         printf("Error: Failed to initialize renderer\n");
         RGFW_window_close(win);
         return 1;
     }
     
+    Hud hud = {0};
+    bool hud_ok = hud_init(&hud);
+    if (!hud_ok) printf("Warning: HUD disabled (text shader failed)\n");
+    float fps = 60.0f;
+
     ParticleSystem* ps = particle_system_create(config.particle_count);
     if (!ps) {
         printf("Error: Failed to create particle system\n");
@@ -177,10 +252,12 @@ int main(void) {
     printf("W/A/S/D - Camera movement\n");
     printf("+/-     - Zoom / Outzoom \n");
     printf("C       - Reset camera \n");
+    printf("H       - Show/hide HUD\n");
     printf("ESC     - Exit\n");
     
     while (RGFW_window_shouldClose(win) == RGFW_FALSE) {
         float dt = get_delta_time();
+        if (dt > 0.0f) fps += (1.0f / dt - fps) * 0.05f;
 
         RGFW_event event;
         while (RGFW_window_checkEvent(win, &event)) {
@@ -205,10 +282,15 @@ int main(void) {
 
         renderer_update_particles(renderer, ps);
         renderer_draw(renderer, ps, &camera);
+
+        hud_begin(&hud);
+        if (hud_ok && show_hud) draw_hud(&hud, &config, &camera, win, fps);
+        hud_draw(&hud, win->w, win->h);
         RGFW_window_swapBuffers_OpenGL(win);
     }
     
     // Cleanup
+    hud_destroy(&hud);
     particle_system_destroy(ps);
     renderer_destroy(renderer);
     RGFW_window_close(win);

@@ -18,6 +18,7 @@ typedef struct {
 typedef struct {
     Particle* particles;  // Dynamic array of particles
     int count;           // Number of particles
+    bool dirty;          // Particles changed since the renderer last uploaded them
 } ParticleSystem;
 
 // View cache

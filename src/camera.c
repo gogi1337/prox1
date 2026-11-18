@@ -47,3 +47,12 @@ void camera_reset(Camera* cam) {
     cam->y = 0.0f;
     cam->zoom = 1.0f;
 }
+
+void camera_screen_to_world(const Camera* cam, float screen_x, float screen_y,
+                            int window_width, int window_height,
+                            float* world_x, float* world_y) {
+    float left, right, bottom, top;
+    camera_get_view_bounds(cam, &left, &right, &bottom, &top);
+    *world_x = left + (screen_x / window_width) * (right - left);
+    *world_y = top - (screen_y / window_height) * (top - bottom);
+}

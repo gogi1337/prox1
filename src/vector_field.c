@@ -49,3 +49,10 @@ VectorFieldFunc vector_field_get(int index) {
     fprintf(stderr, "Error: No vector fields registered!\n");
     return NULL;
 }
+
+const char* vector_field_get_name(int index) {
+    if (index >= 0 && index < MAX_FIELDS && field_registry[index].registered) {
+        return field_registry[index].name;
+    }
+    return "(none)";
+}

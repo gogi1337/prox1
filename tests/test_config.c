@@ -37,6 +37,11 @@ static void test_config(void) {
     assert(config_load_from_file(&c, path));
     assert(c.window_width >= 100 && c.particle_count >= 1 && c.integration_step > 0.0f);
 
+    write_file(path, "particle_count = 2000000000\n");
+    c = config_create_default();
+    assert(config_load_from_file(&c, path));
+    assert(c.particle_count == 5000000);
+
     // Missing file keeps defaults and reports failure
     c = config_create_default();
     assert(!config_load_from_file(&c, "build/does_not_exist.ini"));

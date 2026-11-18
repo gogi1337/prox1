@@ -20,6 +20,32 @@ static void check_gl_error(const char* operation) {
 #endif
 }
 
+// (Re)create the offscreen scene texture at the given size. Contents are lost.
+static bool scene_create(Renderer* renderer, int w, int h) {
+    if (!renderer->scene_fbo) glGenFramebuffers(1, &renderer->scene_fbo);
+    if (!renderer->scene_tex) glGenTextures(1, &renderer->scene_tex);
+
+    // 8-bit on purpose: the glow of the trails comes from 8-bit rounding in the
+    // fade; a 16-bit scene was about 10x dimmer.
+    glBindTexture(GL_TEXTURE_2D, renderer->scene_tex);
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer->scene_fbo);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer->scene_tex, 0);
+    bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    if (!complete) {
+        fprintf(stderr, "Error: Could not create the offscreen scene buffer\n");
+        return false;
+    }
+    renderer->scene_w = w;
+    renderer->scene_h = h;
+    renderer->should_clear = true;
+    return true;
+}
+
 Renderer* renderer_create() {
     Renderer* renderer = (Renderer*)calloc(1, sizeof(Renderer));
     if (!renderer) {
@@ -116,12 +142,9 @@ bool renderer_init(Renderer* renderer, int window_width, int window_height) {
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     
-    // Initial clear
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (!scene_create(renderer, window_width, window_height)) return false;
     
     renderer->initialized = true;
-    renderer_set_viewport(renderer, window_width, window_height);
     
     printf("Renderer initialized successfully\n");
     printf("Particle shader ID: %d\n", renderer->particle_shader.program_id);
@@ -130,8 +153,8 @@ bool renderer_init(Renderer* renderer, int window_width, int window_height) {
     return true;
 }
 
-void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps) {
-    if (!renderer || !renderer->initialized || !ps || ps->count == 0) return;
+void renderer_update_particles(Renderer* renderer, ParticleSystem* ps) {
+    if (!renderer || !renderer->initialized || !ps || ps->count == 0 || !ps->dirty) return;
     
     // Allocate vertex data (2 vertices per particle for line rendering)
     int needed = ps->count * 2;
@@ -175,6 +198,7 @@ void renderer_update_particles(Renderer* renderer, const ParticleSystem* ps) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     
     renderer->particle_count = ps->count * 2;
+    ps->dirty = false;
     
     check_gl_error("Update particles");
 }
@@ -186,7 +210,11 @@ void renderer_request_clear(Renderer* renderer) {
 }
 
 void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Camera* cam) {
-    if (!renderer || !renderer->initialized || !ps || renderer->particle_count == 0) return;
+    if (!renderer || !renderer->initialized || !ps) return;
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer->scene_fbo);
+    glViewport(0, 0, renderer->scene_w, renderer->scene_h);
+    glEnable(GL_BLEND);
     
     // Handle clear request
     if (renderer->should_clear) {
@@ -195,11 +223,13 @@ void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Camera* c
         renderer->should_clear = false;
     } else {
         glUseProgram(renderer->fade_shader.program_id);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // Color fades; alpha channel is left alone so the window stays opaque
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
         
         glBindVertexArray(renderer->fade_vao);
         
-        float fade_color[4] = {0.0f, 0.0f, 0.0f, 0.08f};  // Was 0.015f
+        // Fixed fade per frame (8%): this sets the trail length
+        float fade_color[4] = {0.0f, 0.0f, 0.0f, 0.08f};
         glUniform4fv(renderer->fade_color_loc, 1, fade_color);
         
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
@@ -207,39 +237,51 @@ void renderer_draw(Renderer* renderer, const ParticleSystem* ps, const Camera* c
         check_gl_error("Draw fade");
     }
     
-    // Get camera view bounds
-    float left, right, bottom, top;
-    camera_get_view_bounds(cam, &left, &right, &bottom, &top);
+    if (renderer->particle_count > 0) {
+        // Get camera view bounds
+        float left, right, bottom, top;
+        camera_get_view_bounds(cam, &left, &right, &bottom, &top);
+        
+        // Create orthographic projection matrix
+        float projection[16] = {
+            2.0f / (right - left), 0.0f, 0.0f, 0.0f,
+            0.0f, 2.0f / (top - bottom), 0.0f, 0.0f,
+            0.0f, 0.0f, -1.0f, 0.0f,
+            -(right + left) / (right - left), -(top + bottom) / (top - bottom), 0.0f, 1.0f
+        };
+        
+        glUseProgram(renderer->particle_shader.program_id);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+        
+        glUniformMatrix4fv(renderer->particle_projection_loc, 1, GL_FALSE, projection);
+        
+        glBindVertexArray(renderer->vao);
+        glLineWidth(1.5f);
+        
+        // Draw all particle trails as lines
+        glDrawArrays(GL_LINES, 0, renderer->particle_count);
+        
+        check_gl_error("Draw particles");
+        
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
     
-    // Create orthographic projection matrix
-    float projection[16] = {
-        2.0f / (right - left), 0.0f, 0.0f, 0.0f,
-        0.0f, 2.0f / (top - bottom), 0.0f, 0.0f,
-        0.0f, 0.0f, -1.0f, 0.0f,
-        -(right + left) / (right - left), -(top + bottom) / (top - bottom), 0.0f, 1.0f
-    };
-    
-    glUseProgram(renderer->particle_shader.program_id);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    
-    glUniformMatrix4fv(renderer->particle_projection_loc, 1, GL_FALSE, projection);
-    
-    glBindVertexArray(renderer->vao);
-    glLineWidth(1.5f);
-    
-    // Draw all particle trails as lines
-    glDrawArrays(GL_LINES, 0, renderer->particle_count);
-    
-    check_gl_error("Draw particles");
-    
-    // Cleanup
-    glBindVertexArray(0);
-    glUseProgram(0);
+    // Copy the finished scene to the window
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->scene_fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, renderer->scene_w, renderer->scene_h,
+                      0, 0, renderer->scene_w, renderer->scene_h,
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+// Window was resized: the scene buffer must match it (trails start over)
 void renderer_set_viewport(Renderer* renderer, int width, int height) {
-    if (!renderer) return;
-    glViewport(0, 0, width, height);
+    if (!renderer || !renderer->initialized || width <= 0 || height <= 0) return;
+    if (width != renderer->scene_w || height != renderer->scene_h) {
+        scene_create(renderer, width, height);
+    }
 }
 
 void renderer_destroy(Renderer* renderer) {
@@ -249,6 +291,8 @@ void renderer_destroy(Renderer* renderer) {
             glDeleteBuffers(1, &renderer->vbo);
             glDeleteVertexArrays(1, &renderer->fade_vao);
             glDeleteBuffers(1, &renderer->fade_vbo);
+            glDeleteFramebuffers(1, &renderer->scene_fbo);
+            glDeleteTextures(1, &renderer->scene_tex);
             shader_delete(&renderer->particle_shader);
             shader_delete(&renderer->fade_shader);
         }

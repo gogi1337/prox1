@@ -66,7 +66,7 @@ static inline bool is_particle_outside_view(const Particle* p, const ViewCache* 
 
 // Create particle system
 ParticleSystem* particle_system_create(int initial_capacity) {
-    ParticleSystem* ps = (ParticleSystem*)malloc(sizeof(ParticleSystem));
+    ParticleSystem* ps = (ParticleSystem*)calloc(1, sizeof(ParticleSystem));
     if (!ps) {
         fprintf(stderr, "Error: Failed to allocate particle system\n");
         return NULL;
@@ -96,6 +96,7 @@ void particle_system_redistribute(ParticleSystem* ps, const Config* config, cons
         particle_reset_in_view(&ps->particles[i], &cache);
         ps->particles[i].lifetime = randf() * lifetime_mult;
     }
+    ps->dirty = true;
 }
 
 // Grid-based redistribution
@@ -137,6 +138,7 @@ void particle_system_redistribute_grid(ParticleSystem* ps, const Config* config,
         ps->particles[idx].lifetime = randf() * lifetime_mult;
         idx++;
     }
+    ps->dirty = true;
 }
 
 // Main update with adaptive integration
@@ -153,6 +155,12 @@ void particle_system_update(ParticleSystem* ps, const Config* config, const Came
 
     float sim_dt = dt * config->simulation_speed;
     float adjusted_dt = sim_dt * config->integration_step / cam->zoom;
+    // Zoomed out, step/zoom makes steps huge; stiff fields would streak across the view
+    float max_step = 0.02f * fminf(cache.view_width, cache.view_height);
+
+    int forced_respawns_per_frame = (int)(ps->count * 0.005f);  // 0.5% per frame
+    if (forced_respawns_per_frame < 1) forced_respawns_per_frame = 1;
+    int respawn_counter = 0;
 
     for (int i = 0; i < ps->count; i++) {
         Particle* p = &ps->particles[i];
@@ -168,7 +176,10 @@ void particle_system_update(ParticleSystem* ps, const Config* config, const Came
         float y0 = p->position.y;
 
         vec2 k1 = velocity;
-        float dt_half = adjusted_dt * 0.5f;
+        float speed = sqrtf(k1.x * k1.x + k1.y * k1.y);
+        float step_dt = adjusted_dt;
+        if (speed * step_dt > max_step) step_dt = max_step / speed;
+        float dt_half = step_dt * 0.5f;
 
         vec2 pos2 = {x0 + k1.x * dt_half, y0 + k1.y * dt_half};
         vec2 k2 = field(pos2, scale);
@@ -176,32 +187,34 @@ void particle_system_update(ParticleSystem* ps, const Config* config, const Came
         vec2 pos3 = {x0 + k2.x * dt_half, y0 + k2.y * dt_half};
         vec2 k3 = field(pos3, scale);
 
-        vec2 pos4 = {x0 + k3.x * adjusted_dt, y0 + k3.y * adjusted_dt};
+        vec2 pos4 = {x0 + k3.x * step_dt, y0 + k3.y * step_dt};
         vec2 k4 = field(pos4, scale);
 
-        float dt_sixth = adjusted_dt * 0.16666667f;
+        float dt_sixth = step_dt * 0.16666667f;
         p->position.x = x0 + (k1.x + 2.0f*k2.x + 2.0f*k3.x + k4.x) * dt_sixth;
         p->position.y = y0 + (k1.y + 2.0f*k2.y + 2.0f*k3.y + k4.y) * dt_sixth;
 
-        // Lifetime is real simulation seconds, independent of zoom and step size
-        p->lifetime += sim_dt;
+        p->lifetime += adjusted_dt;
 
-        if (is_particle_outside_view(p, &cache) || p->lifetime > config->particle_lifetime) {
+        // Check if particle needs respawning
+        bool outside = is_particle_outside_view(p, &cache);
+        bool expired = p->lifetime > config->particle_lifetime;
+
+        // Force a few respawns per frame. The cap is hit part-way through the
+        // array, so later particles live long and pile up where the flow
+        // converges: that is the look of the visualisation.
+        bool force_respawn = (respawn_counter < forced_respawns_per_frame) &&
+                             (randf() < 0.01f);
+
+        if (outside || expired || force_respawn) {
             particle_reset_in_view(p, &cache);
             // Random lifetime to prevent synchronization
             p->lifetime = randf() * config->particle_lifetime * 0.2f;
+
+            if (force_respawn) respawn_counter++;
         }
     }
-
-    // Force 0.5% of random particles to respawn each frame so they cannot
-    // clump in stable flow regions. Random indices keep this uniform.
-    int forced = ps->count / 200;
-    if (forced < 1) forced = 1;
-    for (int k = 0; k < forced; k++) {
-        Particle* p = &ps->particles[rand() % ps->count];
-        particle_reset_in_view(p, &cache);
-        p->lifetime = randf() * config->particle_lifetime * 0.2f;
-    }
+    ps->dirty = true;
 }
 
 void particle_system_destroy(ParticleSystem* ps) {
